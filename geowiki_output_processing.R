@@ -295,12 +295,53 @@ sum(dataset_modified_latest_adjusted$`GFC validation - Issues with class assignm
 
 
 write.csv(dataset_modified_latest_adjusted, 
-          paste0(dir, date_part, "data_latest_adjusted.csv"), 
+          paste0(dir, date_part, "_data_latest_adjusted.csv"), 
           row.names = FALSE)
 
 
 View(dataset_modified_latest_adjusted)
 nrow(dataset_modified_latest_adjusted) # 13764
+
+
+
+
+## Check for completeness ####
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", n_max = 15)
+
+nrow(Reference_data_2026_strata)
+names(Reference_data_2026_strata)
+sort(Reference_data_2026_strata$ID2)
+
+Ref_strata <- Reference_data_2026_strata %>% 
+  filter(ID2 %in% c(284, 285, 286, 287, 288, 291, 292, 293, 294)) %>%
+  select(ID2, `Region / Countries`, `Sample units...10`) %>%
+  rename("ID2_2024" = "ID2")  %>%
+  rename("Sample_units_for_valid" = `Sample units...10`) 
+
+
+
+names(dataset_modified_latest_adjusted)
+unique(dataset_modified_latest_adjusted$groupid)
+
+
+table(dataset_modified_latest_adjusted$groupid) 
+
+SampleUnits_validated <- table(dataset_modified_latest_adjusted$groupid) %>% 
+  as.data.frame() %>%
+  rename("groupid_2026" = "Var1")  %>%
+  rename("Sample_units_validated_2026" = "Freq") 
+
+check_completeness <- cbind(Ref_strata, SampleUnits_validated)
+check_completeness
+
+check_completeness_ft <- flextable::flextable(check_completeness)
+flextable::save_as_image(check_completeness_ft, 
+                         path = paste0(dir, date_part, "_check_completeness.png"))
+ 
+
+write.csv(check_completeness, 
+          paste0(dir, date_part, "_check_completeness.csv"), 
+          row.names = FALSE)
 
 
 

@@ -488,6 +488,111 @@ scenario2 %>% filter(location_id == 1953576) %>% View()   # Non-FOR vs Non-FOR; 
 
 
 
+## Check (1) that all samples with "no assignemnt" in FOR/Non-FOR are included in scenario 2
+
+unique(data_2026_2024_clean$GFC.validation...forest)
+
+check1 <- data_2026_2024_clean %>% 
+  filter(`GFC.validation...forest` == "no assignment") %>%   #nrow() # 13
+  filter(!location_id %in% scenario2$location_id)  # 12 
+
+#sum(check1$location_id %in% scenario2$location_id)  # 12 
+
+View(check1)
+check1$location_id  # 1998834
+missing_points %>% filter(location_id == 1998834)
+
+## it's one of the no assigned in 2026 and is a missing_point from 2024 (not in 'GFC_v2_accuracy-assessment_gaul.xlsx')
+## However, it has assignment, e.g. in 'primary_data_latest.csv'
+## It should be re-ingested with the 61 missing_points
+
+data_2026_2024_clean %>% 
+  filter(`GFC.validation...forest` == "no assignment") %>%
+  pull(location_id)
+
+# 1953624 1953733 1954792 1956114 1971889 1995327 1996303 1998590 1998834 2749904 2749985 2750076 2751011 
+
+
+## Check (2) that all samples with "no assignemnt" in 'confidence' are included in scenario 2
+unique(data_2026_2024_clean$GFC.validation...confidence)
+
+check2 <- data_2026_2024_clean %>% 
+  filter(`GFC.validation...confidence` == "no assignment") %>%  # nrow() # 113
+  #filter(location_id %in% scenario2$location_id)   # 38 that are already in scenario 2 and do not need to be re-ingested
+  filter(!location_id %in% scenario2$location_id)   # 75 that are not in scenario 2 and need to be re-ingested
+
+View(check2) 
+## the 113 samples that have confidence = "no assignment" in 2026, they are not included in scenario 2, 
+## but they are all "high confidence" in 2024 (excepte one, which is already re-ingested by another rule). 
+## None of them have disagreement in Forest/Non-Forest. 
+
+check2
+nrow(check2)
+
+# Adding them to scenario 2 data set
+nrow(scenario2)
+scenario2 <- rbind(scenario2, check2) #%>% nrow()  # 4037
+
+
+## updating samples ssummary table 
+
+table_final <- table_final %>%
+  slice(-c(10, 11))
+
+table_final
+table(scenario2$groupid) %>% data.frame()
+sum(table(scenario2$groupid))
+
+
+Sc2_missing_confidence <- table(scenario2$groupid)  %>%
+  data.frame()  %>% #str()
+  mutate(Var1 = as.integer(as.character(Var1))) %>%
+  rename(Strata = Var1, Sc2_missing_confidence = Freq)
+
+table_final <- left_join(table_final, Sc2_missing_confidence, by = "Strata") %>%
+  relocate("Sc2_missing_confidence", .after = "Scenario2")
+table_final
+
+
+totals <- table_final %>%
+  summarise(
+    across(1, ~ 0),
+    across(2, ~ "Total"),
+    across(-(1:2), ~ sum(.x, na.rm = TRUE))
+  )
+
+table_final <- bind_rows(table_final, totals)
+table_final
+
+totals_plus61 <- totals %>%
+  mutate(
+    across(5:ncol(.), ~ .x + 61)
+  ) %>%
+  mutate(
+    across(2, ~ "TOTAL +61"),
+    across(3, ~ NA),
+    across(4, ~ NA)
+  )
+
+#table_final <- table_final %>%
+#  slice(-c(11, 12))
+
+table_final <- bind_rows(table_final, totals_plus61)
+table_final
+
+
+## Check (3) that all samples with NA both in 'Forest type' and 'other LU type' are included in scenario 2.
+
+## They are the same 13 samples detected in check 1
+
+
+## Check (4): that there are no samples with NA in 'issues'
+
+sum(is.na(unique(data_2026_2024_clean$GFC.validation...Issues.with.class.assignment)))  # 0
+
+
+
+
 
 ## Adding missing samples (61 samples in 2026)
 
@@ -499,6 +604,30 @@ dir_old_results <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validatio
 primary_data_latest <- read.csv(paste0(dir_old_results, "primary_data_latest.csv"))
 sort(names(primary_data_latest))
 View(primary_data_latest)
+
+
+secondary_data_latest <- read.csv(paste0(dir_old_results, "secondary_data_latest_adjusted.csv"))
+
+sum(secondary_data_latest$location_id %in% missing_points$location_id)  # 18
+sum(missing_points$location_id %in% secondary_data_latest$location_id)  # 18
+
+missing_points_secondary <- secondary_data_latest %>% 
+  filter(location_id %in% missing_points$location_id) %>% #View()
+  select("location_id",
+          "name.1",
+          "name.3",
+          "name.5",
+          "name.7"
+          )  
+  
+View(missing_points_secondary)
+
+names(secondary_data_latest)
+names(secondary_data_latest)
+
+
+#
+
 
 names(scenario2)
 View(scenario2)

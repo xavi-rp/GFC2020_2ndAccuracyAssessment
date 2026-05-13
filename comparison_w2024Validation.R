@@ -793,3 +793,294 @@ write.csv(diff_FOR_NONFOR_forTieCallers,
 
 
 
+
+
+## Interpretation 2024 assessment ####
+
+dir_old_results <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/"
+
+primary_data_latest <- read.csv(paste0(dir_old_results, "primary_data_latest.csv"))
+
+View(primary_data_latest[1, ]) # 21752
+nrow(primary_data_latest) # 21752
+
+
+secondary_data_latest <- read.csv(paste0(dir_old_results, "secondary_data_latest_adjusted.csv"))
+View(secondary_data_latest[1:10, ])
+
+sum(names(primary_data_latest) == names(secondary_data_latest))
+names(primary_data_latest)[!names(primary_data_latest) %in% names(secondary_data_latest)]
+
+
+## Criterion 1
+crit1 <- primary_data_latest %>% 
+  filter(name.3 == "high confidence") # %>% nrow()   # 20379
+
+nrow(crit1)
+names(crit1)
+
+crit1 <- crit1 %>% 
+  select(email, 
+         groupid,
+         pixel_center_x, pixel_center_y,
+         sample_id,
+         location_id,
+         name.1,
+         name.3,
+         #name.5,
+         name.9,
+         name.7,
+         comment) %>% 
+  rename(
+    "X2024_email" = "email",
+    "X2024_groupid" = "groupid",
+    "X2024_sample_id" = "sample_id",
+    #"X2024_location_id" = "location_id",
+    "X2024_forest_class" = "name.1",
+    #"2024_forest_class_num" = "forest_class_num_3",
+    "X2024_confidence_level" = "name.3",
+    "X2024_type_class" = "name.9",
+    "X2024_class_issues" = "name.7",
+    "X2024_comment" = "comment"
+    #"2024_continent" = "continent",
+    #"2024_GEZ_CODE" = "GEZ_CODE",
+    #"2024_strata" = "strata",
+    #"2024_GFC_v2" = "GFC_v2",
+    #"2024_GFC_v2_noMMU" = "GFC_v2_noMMU",
+    #"2024_strata_gaul" = "strata_gaul",
+    #"2024_gaul_opt1" = "gaul_opt1",
+    #"2024_continent_gaul" = "continent_gaul"
+  ) #%>% 
+View(crit1)
+
+
+## Criterion 2
+
+crit2 <- secondary_data_latest %>% 
+  filter(name.3 == "high confidence")  %>%   #nrow()   # 3542
+  filter_out(location_id %in% crit1$location_id) #%>%   nrow()  # 1093
+
+
+nrow(crit2)  # 1093
+sum(crit2$location_id %in% crit1$location_id)  # 0
+
+crit2 <- crit2 %>% 
+  select(email, 
+         groupid,
+         pixel_center_x, pixel_center_y,
+         sample_id,
+         location_id,
+         name.1,
+         name.3,
+         name.7,
+         name.5,
+         comment.3) %>% 
+  rename(
+    "X2024_email" = "email",
+    "X2024_groupid" = "groupid",
+    "X2024_sample_id" = "sample_id",
+    #"X2024_location_id" = "location_id",
+    "X2024_forest_class" = "name.1",
+    #"2024_forest_class_num" = "forest_class_num_3",
+    "X2024_confidence_level" = "name.3",
+    "X2024_type_class" = "name.7",
+    "X2024_class_issues" = "name.5",
+    "X2024_comment" = "comment.3"
+  ) #%>% 
+
+View(crit2)
+
+
+
+## Criterion 3
+
+remaining <- primary_data_latest %>% 
+  filter_out(location_id %in% crit1$location_id) %>% 
+  filter_out(location_id %in% crit2$location_id)  #%>%  nrow() # 280
+
+nrow(remaining)
+
+
+prim_For_low <- primary_data_latest %>% 
+  filter(name.1 == "Forest") %>% 
+  filter(name.3 == "low confidence") %>% 
+  pull(location_id)
+
+sec_For_low <- secondary_data_latest %>% 
+  filter(name.1 == "Forest") %>% 
+  filter(name.3 == "low confidence") %>% 
+  pull(location_id)
+
+keep_For_low <- prim_For_low[prim_For_low %in% sec_For_low]
+length(keep_For_low)
+
+prim_NonFor_low <- primary_data_latest %>% 
+  filter(name.1 == "Non-forest") %>% 
+  filter(name.3 == "low confidence") %>% 
+  pull(location_id)
+
+sec_NonFor_low <- secondary_data_latest %>% 
+  filter(name.1 == "Non-forest") %>% 
+  filter(name.3 == "low confidence") %>% 
+  pull(location_id)
+
+keep_NonFor_low <- prim_NonFor_low[prim_NonFor_low %in% sec_NonFor_low]
+length(keep_NonFor_low)
+
+sum(keep_For_low %in% keep_NonFor_low) # 0
+sum(keep_NonFor_low %in% keep_For_low)
+
+
+keep_low <- c(keep_For_low, keep_NonFor_low)
+length(keep_low)
+
+
+crit3 <- primary_data_latest %>% 
+  filter(location_id %in% keep_low) # %>% nrow()  # 153
+
+nrow(crit3)
+
+crit3 <- crit3 %>% 
+  select(email, 
+         groupid,
+         pixel_center_x, pixel_center_y,
+         sample_id,
+         location_id,
+         name.1,
+         name.3,
+         name.9,
+         name.7,
+         comment.1) %>% 
+  rename(
+    "X2024_email" = "email",
+    "X2024_groupid" = "groupid",
+    "X2024_sample_id" = "sample_id",
+    #"X2024_location_id" = "location_id",
+    "X2024_forest_class" = "name.1",
+    #"2024_forest_class_num" = "forest_class_num_3",
+    "X2024_confidence_level" = "name.3",
+    "X2024_type_class" = "name.9",
+    "X2024_class_issues" = "name.7",
+    "X2024_comment" = "comment.1"
+  ) #%>% 
+
+View(crit3)
+
+
+## Criterion 4: From the remaining sample, make a decision which interpretation to use (103)
+
+ref_for_crit4 <- primary_data_latest %>% 
+  filter_out(location_id %in% crit1$location_id) %>% 
+  filter_out(location_id %in% crit2$location_id) %>% 
+  filter_out(location_id %in% crit3$location_id) %>% # nrow()  # 127
+  pull(location_id) %>%  sort()
+
+length(ref_for_crit4)  # 127
+  
+nrow(primary_data_latest)
+sum(primary_data_latest$name.1 == "no assignment")  # 3
+primary_data_latest %>% filter(name.1 == "no assignment") %>% pull(location_id) %>% sort()      # 2130589 2131101 2131108
+
+sum(secondary_data_latest$name.1 == "no assignment")  # 4
+secondary_data_latest %>% filter(name.1 == "no assignment") %>% pull(location_id) %>%  sort()   # 1996944 2130378 2130449 2130501
+
+
+ref_for_crit4_final <- data_1stAssessment %>% 
+  filter(location_id %in% ref_for_crit4) %>%  # nrow()   # 103
+  pull(location_id) %>%  sort()
+
+
+crit4 <- data_1stAssessment %>% 
+  filter(location_id %in% ref_for_crit4)
+
+nrow(crit4) # 103
+
+crit4 <- crit4 %>% 
+  select(email_3, 
+         #groupid,
+         #pixel_center_x, pixel_center_y,
+         sample_id,
+         location_id,
+         forest_class_3,
+         confidence_level_3,
+         type_class_3,
+         class_issues_3,
+         #comment.1
+         ) %>% 
+  rename(
+    "X2024_email" = "email_3",
+    #"X2024_groupid" = "groupid",
+    "X2024_sample_id" = "sample_id",
+    #"X2024_location_id" = "location_id",
+    "X2024_forest_class" = "forest_class_3",
+    #"2024_forest_class_num" = "forest_class_num_3",
+    "X2024_confidence_level" = "confidence_level_3",
+    "X2024_type_class" = "type_class_3",
+    "X2024_class_issues" = "class_issues_3",
+    #"X2024_comment" = "comment.1"
+  ) #%>%
+  
+
+missing_cols <- setdiff(names(crit1), names(crit4))
+crit4[missing_cols] <- NA
+
+crit4 <- crit4 %>%
+  select(all_of(names(crit1)))
+
+View(crit4)
+
+## Remaining after 4 criteria: no assignation possible
+
+nrow(primary_data_latest)  # 21752
+nrow(crit1) + nrow(crit2) + nrow(crit3) + nrow(crit4)  # 21728
+nrow(primary_data_latest) - (nrow(crit1) + nrow(crit2) + nrow(crit3) + nrow(crit4))  # 24
+
+
+unassigned_samples_refs <- primary_data_latest %>% 
+  filter_out(location_id %in% crit1$location_id) %>% 
+  filter_out(location_id %in% crit2$location_id) %>% 
+  filter_out(location_id %in% crit3$location_id) %>%
+  filter_out(location_id %in% crit4$location_id) %>%   #nrow() # 24
+  pull(location_id) %>%  sort()
+
+unassigned_samples_refs
+# 1974009 1993220 1993332 1996816 1996944 1997072 1997129 1998687 1998834 1998855 1998864 2129075 
+# 2129688 2129888 2130227 2130378 2130406 2130501 2130570 2130589 2130647 2130846 2131101 2131108
+
+
+missing_points %>% 
+  filter(location_id %in% unassigned_samples_refs) %>%  nrow()  # 11
+
+data_geowiki %>% 
+  filter(location_id %in% unassigned_samples_refs) %>%  nrow()  # 11
+
+input_file_df %>% 
+  filter(location_id %in% unassigned_samples_refs) %>%  #nrow()
+  pull(location_id) %>%  unique() %>% sort() #%>% length()                 # 11
+
+# Assessed in 2026:
+# 1998687 1998834 1998855 1998864 2129075 2129688 2129888 2130227 2130378 2130501 2130846
+
+
+## Full 2024 final file ####
+
+full_2024_recreated <- rbind(crit1, crit2, crit3, crit4) #%>% nrow()
+
+nrow(full_2024_recreated) # 21728
+View(full_2024_recreated)
+
+nrow(primary_data_latest) # 21752
+nrow(secondary_data_latest) # 4000
+
+primary_data_latest %>% 
+  filter(location_id %in% unassigned_samples_refs) %>% nrow()
+
+secondary_data_latest %>% 
+  filter(location_id %in% unassigned_samples_refs) %>% nrow()
+
+
+
+write.csv(full_2024_recreated, 
+          paste0(dir_1stAssessment, "final_2024_recreated.csv"), 
+          row.names = FALSE)
+

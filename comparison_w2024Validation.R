@@ -711,7 +711,8 @@ scenario2_plusMissing <- scenario2_plusMissing %>%
     )
   ) %>%
   relocate(c(X2024_forest_type, X2024_other_LU_type),
-           .after = X2024_confidence_level_3)
+           .after = X2024_confidence_level_3) %>% 
+  select(-X2024_type_class_3)
 
 
 #
@@ -750,11 +751,10 @@ cols_included_export <- c("groupid",	"sample_id",	"location_id",
 
 
 samples_reingestion <- scenario2_plusMissing %>%
-  select(cols_included) %>%
-  rename(set_names(cols_included, cols_included_export)) #%>%
+  select(all_of(cols_included_export)) #%>% head()
 
 head(samples_reingestion)
-nrow(samples_reingestion)  # 882 rows
+nrow(samples_reingestion)  # 4061 rows
 
 
 write.csv(samples_reingestion, 
@@ -772,32 +772,38 @@ write.csv(samples_reingestion,
 
 # Prepare a file which shows the tie caller the class selection in the first assessment and in the ongoing assessment
 
+scenario2_plusMissing
+View(scenario2_plusMissing)
+nrow(scenario2_plusMissing)  # 4061
+names(scenario2_plusMissing)
 
-diff_FOR_NONFOR
-names(diff_FOR_NONFOR)
+table_for_tie_callers <- scenario2_plusMissing %>% 
+  select(
+    groupid,
+    pixel_center_x.x, pixel_center_y.x,
+    sample_id, 
+    location_id,
+    GFC.validation...forest, GFC.validation...confidence, GFC.validation...forest.type,
+    GFC.validation...other.land.use.type, GFC.validation...Issues.with.class.assignment, comment,
+    X2024_groupid, X2024_sample_id.y,                            
+    X2024_forest_class_3, X2024_confidence_level_3, X2024_forest_type,
+    X2024_other_LU_type, X2024_class_issues_3,
+    X2024_comment
+    ) %>%
+  rename_with( ~ str_replace(.x, "GFC", "X2026_GFC")) %>%
+  rename(pixel_center_x = pixel_center_x.x,  pixel_center_y = pixel_center_y.x,
+         X2026_groupid = groupid,
+         X2026_sample_id = sample_id) %>%
+  relocate(starts_with("X2024"), .after = location_id)
 
-cols_to_save <- c(
-  "groupid",
-  "pixel_center_x", "pixel_center_y",
-  "sample_id.x",                                   
-  "location_id", 
-  "X2024_continent",
-  "X2024_forest_class_3", "X2024_forest_class_num_3", "X2024_confidence_level_3",
-  "X2024_class_issues_3", "X2024_type_class_3",
-  "GFC.validation...forest", "GFC.validation...confidence", "GFC.validation...forest.type",
-  "GFC.validation...other.land.use.type", "GFC.validation...Issues.with.class.assignment",
-  "comment")
+head(table_for_tie_callers)
+View(table_for_tie_callers)
+nrow(table_for_tie_callers)  # 4061
 
-diff_FOR_NONFOR_forTieCallers <- diff_FOR_NONFOR %>%
-  select(all_of(cols_to_save)) %>% 
-  rename_with(
-    ~ str_replace(.x, "^GFC", "X2026_GFC"),
-    starts_with("GFC")) %>% 
-  rename(sample_id = sample_id.x) #%>% View()  #head()
+#
 
 
-
-write.csv(diff_FOR_NONFOR_forTieCallers, 
+write.csv(table_for_tie_callers, 
           paste0(dir_geowiki, date_part, "_samples_reingestion_2026_forTieCallers.csv"), 
           row.names = FALSE)
 

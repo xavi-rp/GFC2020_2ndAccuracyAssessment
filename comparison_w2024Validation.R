@@ -38,6 +38,9 @@ data_geowiki %>%
 data_1stAssessment <- read_excel(paste0(dir_1stAssessment, "GFC_v2_accuracy-assessment_gaul.xlsx"), 
                                  sheet = "5_combined")
 
+full_2024_recreated <- read.csv(paste0(dir_1stAssessment, "final_2024_recreated.csv")) ## This is the good one
+
+
 head(data.frame(data_1stAssessment))
 names(data_1stAssessment)
 nrow(data_1stAssessment)  # 21612, this is correct
@@ -78,11 +81,12 @@ range(data_geowiki$location_id)        # 1906318 2758358
 sum(data_1stAssessment$location_id %in% data_geowiki$location_id)   # 13703
 sum(data_geowiki$location_id %in% data_1stAssessment$location_id)   # 13703
 
-13764 - 13703  # 61 missing points
+13764 - 13703  # 61 missing points  # 11 with the new data set
 
 
 # rows from data_geowiki with no match in data_1stAssessment
 missing_points <- anti_join(data_geowiki, data_1stAssessment, by = "location_id")
+missing_points <- anti_join(data_geowiki, full_2024_recreated, by = "location_id")
 
 nrow(missing_points)
 View(missing_points)
@@ -101,10 +105,11 @@ write.csv(missing_points,
 # merging both datasets
 
 #data_2026_2024 <- full_join(data_geowiki, data_1stAssessment, by = "location_id")  # keep all rows from both
-data_2026_2024 <- left_join(data_geowiki, data_1stAssessment, by = "location_id")
+#data_2026_2024 <- left_join(data_geowiki, data_1stAssessment, by = "location_id")
+data_2026_2024 <- left_join(data_geowiki, full_2024_recreated, by = "location_id")  # this is the good one
 
 head(data_2026_2024)
-nrow(data_2026_2024) # 13764
+nrow(data_2026_2024) # 13764 Correct
 View(data_2026_2024)
 
 names(data_2026_2024)
@@ -118,38 +123,57 @@ write.csv(data_2026_2024,
 
 data_2026_2024_clean <- data_2026_2024 %>%
   select(1:21, 
-         "sample_id.y",
-         "forest_class_3",                               
-         "forest_class_num_3", 
-         "confidence_level_3",                           
-         "class_issues_3",     
-         "type_class_3",                                 
-         "continent",          
-         "GEZ_CODE",                                     
-         "strata",
-         "GFC_v2",
-         "GFC_v2_noMMU",
-         "location_i",                                   
-         "strata_gaul",
-         "gaul_opt1",
-         "continent_gaul"
+         #"sample_id.y",
+         #"forest_class_3",                               
+         #"forest_class_num_3", 
+         #"confidence_level_3",                           
+         #"class_issues_3",     
+         #"type_class_3",                                 
+         #"continent",          
+         #"GEZ_CODE",                                     
+         #"strata",
+         #"GFC_v2",
+         #"GFC_v2_noMMU",
+         #"location_i",                                   
+         #"strata_gaul",
+         #"gaul_opt1",
+         #"continent_gaul"
+         "X2024_email",            "X2024_groupid",          
+         #"pixel_center_x",         "pixel_center_y", 
+         "X2024_sample_id", "location_id" ,
+         "X2024_forest_class",     "X2024_confidence_level", "X2024_type_class",       "X2024_class_issues",     "X2024_comment" 
          ) %>% 
   rename(
-    "2024_sample_id.y" = "sample_id.y",
-    "2024_forest_class_3" = "forest_class_3",
-    "2024_forest_class_num_3" = "forest_class_num_3",
-    "2024_confidence_level_3" = "confidence_level_3",
-    "2024_class_issues_3" = "class_issues_3",
-    "2024_type_class_3" = "type_class_3",
-    "2024_continent" = "continent",
-    "2024_GEZ_CODE" = "GEZ_CODE",
-    "2024_strata" = "strata",
-    "2024_GFC_v2" = "GFC_v2",
-    "2024_GFC_v2_noMMU" = "GFC_v2_noMMU",
-    "2024_location_i" = "location_i",
-    "2024_strata_gaul" = "strata_gaul",
-    "2024_gaul_opt1" = "gaul_opt1",
-    "2024_continent_gaul" = "continent_gaul"
+    "2024_sample_id.y" = "X2024_sample_id",
+    "2024_forest_class_3" = "X2024_forest_class",
+    #"2024_forest_class_num_3" = "forest_class_num_3",
+    "2024_confidence_level_3" = "X2024_confidence_level",
+    "2024_class_issues_3" = "X2024_class_issues",
+    "2024_type_class_3" = "X2024_type_class",
+    "2024_comment" = "X2024_comment",
+    #"2024_GEZ_CODE" = "GEZ_CODE",
+    #"2024_strata" = "strata",
+    #"2024_GFC_v2" = "GFC_v2",
+    #"2024_GFC_v2_noMMU" = "GFC_v2_noMMU",
+    "location_id" = "location_id",
+    #"2024_strata_gaul" = "strata_gaul",
+    #"2024_gaul_opt1" = "gaul_opt1",
+    #"2024_continent_gaul" = "continent_gaul"
+    #"2024_sample_id.y" = "sample_id.y",
+    #"2024_forest_class_3" = "forest_class_3",
+    #"2024_forest_class_num_3" = "forest_class_num_3",
+    #"2024_confidence_level_3" = "confidence_level_3",
+    #"2024_class_issues_3" = "class_issues_3",
+    #"2024_type_class_3" = "type_class_3",
+    #"2024_continent" = "continent",
+    #"2024_GEZ_CODE" = "GEZ_CODE",
+    #"2024_strata" = "strata",
+    #"2024_GFC_v2" = "GFC_v2",
+    #"2024_GFC_v2_noMMU" = "GFC_v2_noMMU",
+    #"2024_location_i" = "location_i",
+    #"2024_strata_gaul" = "strata_gaul",
+    #"2024_gaul_opt1" = "gaul_opt1",
+    #"2024_continent_gaul" = "continent_gaul"
   ) #%>% names()
 
 
@@ -166,28 +190,30 @@ write.csv(data_2026_2024_clean,
 
 
 
-## Selection criteria ####
+## Selection criteria. Scenarios ####
 
 
-## "Forest" / "Non-forest"
+### "Forest" / "Non-forest" ####
 
 diff_FOR_NONFOR <- data_2026_2024 %>%
-  filter(GFC.validation...forest != forest_class_3)
+  #filter(GFC.validation...forest != forest_class_3)
+  filter(GFC.validation...forest != X2024_forest_class)
 
-nrow(diff_FOR_NONFOR) # 882
+nrow(diff_FOR_NONFOR) # 882 885
 View(diff_FOR_NONFOR)
 
 FOR_NONFOR_comp <- table(diff_FOR_NONFOR$GFC.validation...forest) 
 FOR_NONFOR_comp
 # Forest    no assignment    Non-forest 
-#  343            12           527 
+#  343            12           527 530
 
-sum(FOR_NONFOR_comp)  # 882 samples that have been differently assigned;
+sum(FOR_NONFOR_comp)  # 882 885 samples that have been differently assigned;
                       # Not considered those NAs in 2024 (missing points)
 
 
 pivot_tab_FOR_NONFOR <- data_2026_2024 %>%
-  count(GFC.validation...forest, forest_class_3) %>%
+  #count(GFC.validation...forest, forest_class_3) %>%
+  count(GFC.validation...forest, X2024_forest_class) %>%
   pivot_wider(
     names_from = GFC.validation...forest,
     values_from = n,
@@ -202,7 +228,10 @@ pivot_tab_FOR_NONFOR
 #     Non-forest       343       8958               9
 #           <NA>         7         53               1
 
-
+#X2024_forest_class Forest Non-forest no assignment
+#1             Forest   3864        530             3
+#2         Non-forest    343       9004             9
+#3               <NA>      6          4             1
 
 
 ## "Forest" / "Non-forest" + Confidence (in 2026)
@@ -214,6 +243,8 @@ table(diff_FOR_NONFOR$GFC.validation...confidence)
 # high confidence    low confidence     no assignment 
 #      562               310              10 
 
+#high confidence  low confidence   no assignment 
+#      564             311              10 
 
 
 
@@ -225,6 +256,9 @@ table(diff_FOR_NONFOR$groupid)
 
 # strata:  363  364  365  366  367  368  369  370  371 
 #   freq:  110  101   74   92   92   51   57  266   39 
+
+# strata:  363 364 365 366 367 368 369 370 371 
+#   freq:  110 101  74  92  92  51  57 269  39 
 
 check_completeness <- read.csv(paste0(dir_geowiki, date_part, "_check_completeness.csv"))
 str(check_completeness)
@@ -266,19 +300,13 @@ flextable::save_as_image(diff_FOR_NONFOR_strata_ft,
 
 
 
-## Data for re-ingestion ####
+### Data for re-ingestion ####
 
 data_2026_2024_clean <- read.csv(paste0(dir_geowiki, date_part, "_comparison_2026_2024_clean.csv"))
 names(data_2026_2024_clean)
 length(unique(data_2026_2024_clean$location_id))   # 13764
 length(unique(data_2026_2024_clean$sample_id))   # 13764
 unique(data_2026_2024_clean$groupid)   
-
-
-## Column names to be exported for re-ingestion
-cols_included_export <- c("groupid",	"sample_id",	"location_id")
-cols_included <- c("groupid",	"sample_id.x",	"location_id")
-
 
 
 
@@ -290,7 +318,7 @@ cols_included <- c("groupid",	"sample_id.x",	"location_id")
 diff_FOR_NONFOR <- data_2026_2024_clean %>%
   filter(GFC.validation...forest != X2024_forest_class_3)   # criterion: differently assigned FOR vs Non-FOR
 
-nrow(diff_FOR_NONFOR) # 882  
+nrow(diff_FOR_NONFOR) # 882  885
 head(diff_FOR_NONFOR)
 View(diff_FOR_NONFOR)
 
@@ -307,14 +335,15 @@ unique(data_2026_2024_clean$GFC.validation...forest.type)
 unique(data_2026_2024_clean$X2024_type_class_3)
 
 diff_FOR_type <- data_2026_2024_clean %>%
-  filter(GFC.validation...forest == "Forest" & X2024_forest_class_3 == "Forest") %>% #nrow()  # 3863 (Forest in both)
+  filter(GFC.validation...forest == "Forest" & X2024_forest_class_3 == "Forest") %>% #nrow()  # 3863 3864 (Forest in both)
   #filter(X2024_type_class_3 %in% c("Naturally regenerating forest", "Planted or plantation forest")) %>% nrow()
   filter(GFC.validation...forest.type != X2024_type_class_3) #%>% nrow()  # 363 
 
 nrow(diff_FOR_type)
 
-882 + 363  # 1245  Scenario 1 (not including the 61)
-882 + 363 + 61  # 1306  Scenario 1 (including the 61)
+885 + 363  # 1245 1248  Scenario 1 (not including the 61)
+#882 + 363 + 61  # 1306  Scenario 1 (including the 61)
+885 + 363 + 11  # 1306 1259 Scenario 1 (including the 11)
 
 diff_FOR_type
 nrow(diff_FOR_type)
@@ -322,7 +351,7 @@ View(diff_FOR_type)
 sum(is.na(diff_FOR_type$X2024_forest_class_3))
 
 scenario1 <- rbind(diff_FOR_NONFOR, diff_FOR_type)
-nrow(scenario1)  # 1245
+nrow(scenario1)  # 1245 1248
 View(scenario1)
 
 sc1 <- table(scenario1$groupid)  %>%
@@ -331,7 +360,7 @@ sc1 <- table(scenario1$groupid)  %>%
   rename(Strata = Var1, Scenario1 = Freq)
 
 table_final <- left_join(table_final, sc1, by = "Strata") 
-
+table_final
 
 #
 ## Scenario 2 (Scenario 1 + Disagreement in LU-Type)
@@ -339,20 +368,21 @@ unique(data_2026_2024_clean$GFC.validation...other.land.use.type)
 unique(data_2026_2024_clean$X2024_type_class_3)
 
 diff_NonFOR_LUType <- data_2026_2024_clean %>%
-  filter(GFC.validation...forest == "Non-forest" & X2024_forest_class_3 == "Non-forest") %>% # nrow()  # 8958 (Non-Forest in both)
-  filter(GFC.validation...other.land.use.type != X2024_type_class_3) #%>% # nrow()  # 2717
+  filter(GFC.validation...forest == "Non-forest" & X2024_forest_class_3 == "Non-forest") %>% # nrow()  # 8958 9004 (Non-Forest in both)
+  filter(GFC.validation...other.land.use.type != X2024_type_class_3) #%>% # nrow()  # 2717 2728
 
-nrow(diff_NonFOR_LUType)  # 2717
-View(diff_NonFOR_LUType)  # 2717
+nrow(diff_NonFOR_LUType)  # 2717 2728
+View(diff_NonFOR_LUType)  # 
 
 1306 + 2717   # 4023 (Scenario 2)
+1259 + 2728   # 3987 (Scenario 2 +11)
 
 sum(diff_NonFOR_LUType$location_id %in% diff_FOR_type$location_id)
 sum(diff_FOR_type$location_id %in% diff_NonFOR_LUType$location_id)
 
 
 scenario2 <- rbind(scenario1, diff_NonFOR_LUType)
-nrow(scenario2) #+ 61
+nrow(scenario2) # 3976 +11
 length(unique(scenario2$location_id))
 
 
@@ -376,9 +406,9 @@ scenario3 <- data_2026_2024_clean %>%
   rbind(., scenario2) %>%
   distinct() #%>% nrow()
 
-nrow(scenario3)  # 4485 (Scenario 3)
+nrow(scenario3)  # 4485  4500 (Scenario 3)
 length(unique(scenario3$location_id))
-View(scenario3)  # 4485 (Scenario 3)
+View(scenario3)  # 4500 (Scenario 3)
 
 sc3 <- table(scenario3$groupid)  %>%
   data.frame()  %>% #str()
@@ -403,7 +433,7 @@ scenario4 <- data_2026_2024_clean %>%
   rbind(., scenario2) %>% #nrow()
   distinct() #%>% nrow()
 
-nrow(scenario4)  # 5690
+nrow(scenario4)  # 5690  5706
 View(scenario4)
 
 
@@ -425,7 +455,7 @@ table_final
 scenario5 <- rbind(scenario2, scenario3, scenario4)  %>% #nrow()
   distinct() #%>% nrow()
   
-nrow(scenario5)  # 5823
+nrow(scenario5)  # 5823  5839
 
 sc5 <- table(scenario5$groupid)  %>%
   data.frame()  %>% #str()
@@ -449,10 +479,11 @@ table_final
 
 totals_plus61 <- totals %>%
   mutate(
-    across(5:ncol(.), ~ .x + 61)
+    #across(5:ncol(.), ~ .x + 61)
+    across(5:ncol(.), ~ .x + 11)
   ) %>%
   mutate(
-    across(2, ~ "TOTAL +61"),
+    across(2, ~ "TOTAL +11"),
     across(3, ~ NA),
     across(4, ~ NA)
   )
@@ -466,7 +497,8 @@ table_final
 
 
 write.csv(table_final, 
-          paste0(dir_geowiki, date_part, "_scenarios_reingestion_2026.csv"), 
+          #paste0(dir_geowiki, date_part, "_scenarios_reingestion_2026.csv"), 
+          paste0(dir_geowiki, date_part, "_scenarios_reingestion_2026_new.csv"), 
           row.names = FALSE)
 
 #
@@ -476,6 +508,8 @@ write.csv(table_final,
 
 
 ## Scenario 2 is the one chosen
+
+### Checks for addding relevant samples ####
 
 nrow(scenario2)
 View(scenario2)
@@ -494,17 +528,18 @@ unique(data_2026_2024_clean$GFC.validation...forest)
 
 check1 <- data_2026_2024_clean %>% 
   filter(`GFC.validation...forest` == "no assignment") %>%   #nrow() # 13
-  filter(!location_id %in% scenario2$location_id)  # 12 
+  filter(!location_id %in% scenario2$location_id)  # 1
 
-#sum(check1$location_id %in% scenario2$location_id)  # 12 
+#sum(check1$location_id %in% scenario2$location_id)  # 
 
 View(check1)
 check1$location_id  # 1998834
 missing_points %>% filter(location_id == 1998834)
+scenario2 %>% filter(location_id == 1998834)
 
 ## it's one of the no assigned in 2026 and is a missing_point from 2024 (not in 'GFC_v2_accuracy-assessment_gaul.xlsx')
 ## However, it has assignment, e.g. in 'primary_data_latest.csv'
-## It should be re-ingested with the 61 missing_points
+## It should be re-ingested with the 11 missing_points
 
 data_2026_2024_clean %>% 
   filter(`GFC.validation...forest` == "no assignment") %>%
@@ -526,12 +561,24 @@ View(check2)
 ## but they are all "high confidence" in 2024 (excepte one, which is already re-ingested by another rule). 
 ## None of them have disagreement in Forest/Non-Forest. 
 
+check2 %>% filter(location_id == 1998834)
+
+
 check2
 nrow(check2)
 
 # Adding them to scenario 2 data set
 nrow(scenario2)
-scenario2 <- rbind(scenario2, check2) #%>% nrow()  # 4037
+scenario2 <- rbind(scenario2, check2) #%>% nrow()  # 4037  4051
+#scenario2 <- rbind(scenario2, check1, check2)# %>% nrow()  # 
+nrow(scenario2) # 4051
+length(unique(scenario2$location_id))
+
+scenario2 <- scenario2 %>%
+  distinct(location_id, .keep_all = TRUE) #%>% nrow()
+
+nrow(scenario2) # 4051
+scenario2 %>% filter(location_id == 1998834)
 
 
 ## updating samples ssummary table 
@@ -564,12 +611,12 @@ totals <- table_final %>%
 table_final <- bind_rows(table_final, totals)
 table_final
 
-totals_plus61 <- totals %>%
+totals_plus11 <- totals %>%
   mutate(
-    across(5:ncol(.), ~ .x + 61)
+    across(5:ncol(.), ~ .x + 11)
   ) %>%
   mutate(
-    across(2, ~ "TOTAL +61"),
+    across(2, ~ "TOTAL +11"),
     across(3, ~ NA),
     across(4, ~ NA)
   )
@@ -577,7 +624,7 @@ totals_plus61 <- totals %>%
 #table_final <- table_final %>%
 #  slice(-c(11, 12))
 
-table_final <- bind_rows(table_final, totals_plus61)
+table_final <- bind_rows(table_final, totals_plus11)
 table_final
 
 
@@ -594,81 +641,35 @@ sum(is.na(unique(data_2026_2024_clean$GFC.validation...Issues.with.class.assignm
 
 
 
-## Adding missing samples (61 samples in 2026)
+### Adding missing samples (11 samples in 2026) to scenario 2 + missing confidence ####
 
 names(missing_points)
 View(missing_points)
 
-dir_old_results <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/"
-
-primary_data_latest <- read.csv(paste0(dir_old_results, "primary_data_latest.csv"))
-sort(names(primary_data_latest))
-View(primary_data_latest)
-
-
-secondary_data_latest <- read.csv(paste0(dir_old_results, "secondary_data_latest_adjusted.csv"))
-
-sum(secondary_data_latest$location_id %in% missing_points$location_id)  # 18
-sum(missing_points$location_id %in% secondary_data_latest$location_id)  # 18
-
-missing_points_secondary <- secondary_data_latest %>% 
-  filter(location_id %in% missing_points$location_id) %>% #View()
-  select("location_id",
-          "name.1",
-          "name.3",
-          "name.5",
-          "name.7"
-          )  
+missing_points
   
-View(missing_points_secondary)
-
-names(secondary_data_latest)
-names(secondary_data_latest)
-
-
-#
-
 
 names(scenario2)
 View(scenario2)
+nrow(scenario2)
+
+missing_points %>% 
+  filter(!location_id %in% scenario2$location_id)  # 10, because 1 has already been selected in the previous checks (missing confidence)
+
+full_2024_recreated %>% 
+  filter(location_id %in% missing_points$location_id)  # 0
 
 
-missing_points_old <- primary_data_latest %>%
-  filter(location_id %in% missing_points$location_id) %>%  #View()
-  select(
-    "location_id", 
-    #"pixel_center_x.1", "pixel_center_y.1",
-    "name.1", 
-    "name.3",              
-    #"name.5", 
-    "name.7", 
-    "name.9",    
-    #"comment"
-    ) %>% 
+names(scenario2) 
+names(missing_points) 
+names(scenario2)[!names(scenario2) %in% names(missing_points)]
+
+missing_points_1 <- missing_points %>% 
   rename(
-    #"2024_sample_id.y" = "sample_id.y",
-    "X2024_forest_class_3" = "name.1",
-    #"2024_forest_class_num_3" = "forest_class_num_3",
-    "X2024_confidence_level_3" = "name.3",
-    "X2024_class_issues_3" = "name.7",
-    "X2024_type_class_3" = "name.9",
-    #"2024_continent" = "continent",
-    #"2024_GEZ_CODE" = "GEZ_CODE",
-    #"2024_strata" = "strata",
-    #"2024_GFC_v2" = "GFC_v2",
-    #"2024_GFC_v2_noMMU" = "GFC_v2_noMMU",
-    "X2024_location_i" = "location_id",
-    #"2024_strata_gaul" = "strata_gaul",
-    #"2024_gaul_opt1" = "gaul_opt1",
-    #"2024_continent_gaul" = "continent_gaul"
-  )
-
-View(missing_points_old)
-missing_points_old
-
-
-missing_points_1 <- left_join(missing_points, missing_points_old, by = c("location_id" = "X2024_location_i")) #%>% View()
-
+    pixel_center_x.x = pixel_center_x,
+    pixel_center_y.x = pixel_center_y)
+  
+missing_points_1
 
 missing_cols <- setdiff(names(scenario2), names(missing_points_1))
 missing_points_1[missing_cols] <- NA
@@ -676,17 +677,21 @@ missing_points_1[missing_cols] <- NA
 missing_points_1 <- missing_points_1 %>%
   select(all_of(names(scenario2)))
 
-missing_points_1
 
+#
+nrow(scenario2)
 
-scenario2_plusMissing <- rbind(scenario2, missing_points_1) #%>% View()
+scenario2_plusMissing <- rbind(scenario2, missing_points_1) %>% 
+  distinct(location_id, .keep_all = TRUE) #%>% nrow()
 
-nrow(scenario2_plusMissing)
+#scenario2_plusMissing <- scenario2
+
+nrow(scenario2_plusMissing) # 4061
 View(scenario2_plusMissing)
 
 
 
-## splitting X2024_type_class_3 into forest_type and other LU type
+### splitting X2024_type_class_3 into forest_type and other LU type ####
 
 unique(scenario2_plusMissing$X2024_type_class_3)
 
@@ -711,7 +716,8 @@ scenario2_plusMissing <- scenario2_plusMissing %>%
 
 #
 
-
+length(scenario2_plusMissing$location_id)
+table(scenario2_plusMissing$groupid) %>% data.frame()
 nrow(scenario2_plusMissing)
 View(tail(scenario2_plusMissing))
 
@@ -731,7 +737,17 @@ write.csv(scenario2_plusMissing,
 
 
 
+## File to be sent to IIASA ####
 ## selecting columns for re-ingestion and saving file to be sent to IIASA
+
+## Column names to be exported for re-ingestion
+names(scenario2_plusMissing)
+
+cols_included_export <- c("groupid",	"sample_id",	"location_id",
+                          "X2024_groupid", "X2024_sample_id.y")  # included 2024 columns of groupid (strata) and sample_id, just for information, can be removed
+#cols_included <- c("groupid",	"sample_id.x",	"location_id")
+
+
 
 samples_reingestion <- scenario2_plusMissing %>%
   select(cols_included) %>%

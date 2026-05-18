@@ -3,6 +3,8 @@
 
 library(tidyverse)
 library(readxl)
+library(writexl)
+
 
 
 
@@ -545,6 +547,8 @@ write.csv(table_final,
           paste0(dir_geowiki, date_part, "_scenarios_reingestion_2026.csv"), 
           row.names = FALSE)
 
+#table_final <- read.csv(paste0(dir_geowiki, date_part, "_scenarios_reingestion_2026.csv"))
+#table_final
 #
 
 
@@ -815,6 +819,9 @@ write.csv(scenario2_plusMissing,
 
 
 
+#scenario2_plusMissing <- read.csv(paste0(dir_geowiki, date_part, "_samples_reingestion_2026.csv"))
+#scenario2_plusMissing
+#table_final
 
 
 
@@ -908,6 +915,26 @@ sum(is.na(scenario2_plusMissing$groupid))
 sum(is.na(scenario2_plusMissing$sample_id))
 
 
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", n_max = 15)
+
+Ref_data <- Reference_data_2026_strata %>% 
+  select(ID, `Region / Countries`)
+
+region_names <- table_final %>% 
+  select("Strata", "Region...Countries") %>% 
+  filter_out(Strata == 0) %>% 
+  left_join(Ref_data, by = c(Region...Countries = "Region / Countries")) %>% 
+  relocate(ID, .before = "Strata")
+
+region_names
+
+write.csv(region_names, 
+          paste0(dir_geowiki, date_part, "_region_names.csv"), 
+          row.names = FALSE)
+
+
+
+
 table_for_tie_callers <- scenario2_plusMissing %>% 
   select(
     groupid,
@@ -925,20 +952,45 @@ table_for_tie_callers <- scenario2_plusMissing %>%
   rename(pixel_center_x = pixel_center_x.x,  pixel_center_y = pixel_center_y.x,
          X2026_groupid = groupid,
          X2026_sample_id = sample_id) %>%
-  relocate(starts_with("X2024"), .after = location_id)
+  relocate(starts_with("X2024"), .after = location_id) %>% 
+  left_join(region_names, by= c(X2026_groupid = "Strata")) %>% 
+  relocate(Region...Countries, .before = X2026_groupid) %>% 
+  relocate(ID, .before = Region...Countries)
+
+
+
+
 
 head(table_for_tie_callers)
 View(table_for_tie_callers)
 nrow(table_for_tie_callers)  # 4061
 
-#
+sort(unique(table_for_tie_callers$ID))
 
+table_for_tie_callers %>% 
+  #filter(ID == 4) %>%  # nrow()  # 470 (463 +7)
+  filter(ID == 12) %>%  # nrow()  # 281 (278 + 3)
+  #pull(Region...Countries) %>% 
+  pull(X2026_groupid) %>% 
+  unique()
+
+#
 
 write.csv(table_for_tie_callers, 
           paste0(dir_geowiki, date_part, "_samples_reingestion_2026_forTieCallers.csv"), 
           row.names = FALSE)
 
 
+for (id in region_names$ID) {
+  print(sprintf("%02d", id))
+  
+  table_for_tie_callers %>% 
+    filter(ID %in% id) %>% #nrow() %>% print()
+    write_xlsx(paste0(
+      "/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_Second/geowiki_2026/samples_forTieCallers/",
+      "samples_forTieCallers_", sprintf("%02d", id), ".xlsx"))
+    
+}
 
 
 #
@@ -1311,7 +1363,7 @@ scenario2_plusMissing %>%
 
 
 
-## KLM 14  --> 2026 groupid: 371 / 2024-1st round: 294
+### KLM 14  --> 2026 groupid: 371 / 2024-1st round: 294 ####
 
 range(kml_14$Name)                       # "1962437.000000000000000" "1972417.000000000000000"
 
@@ -1355,7 +1407,7 @@ st_write(kml_14_tiecall,
 
 #
 
-## KLM 13  --> 2026 groupid: 370 / 2024-1st round: 
+### KLM 13  --> 2026 groupid: 370 / 2024-1st round: ####
 
 kml_13 <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_13.kml"))
 
@@ -1380,9 +1432,55 @@ kml_13_tiecall
 
 st_write(kml_13_tiecall, 
          paste0(dir_kml_saved, "kml_13_tiecall.kml"),
-         delete_dsn = TRUE
-         )
+         delete_dsn = TRUE)
 
+
+
+### KLM All  --> 2026 groupid:  / 2024-1st round: ####
+
+region_names <- read.csv(paste0(dir_geowiki, date_part, "_region_names.csv"))
+region_names
+
+
+for (id in region_names$ID) {
+  #print(sprintf("%02d", id))
+  kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", sprintf("%02d", id), ".kml"),
+                   quiet = TRUE)
+  strata_i <- region_names %>% 
+    filter(ID == id) %>% 
+    pull(Strata)
+  
+  
+  X2024_sample_id.y <- scenario2_plusMissing %>% 
+    filter(groupid == strata_i) %>% 
+    pull(location_id)
+  
+  X2024_sample_id.y_gi <- primary_data_latest %>% 
+    filter(location_id %in% X2024_sample_id.y) %>% 
+    pull(sample_id) 
+  
+  print(paste0(sprintf("%02d", id), " / ", strata_i, " : ", length(X2024_sample_id.y_gi), " samples"))
+  
+  
+  # Create cleaned IDs only for matching
+  kml_i_tiecall <- kml_i %>%
+    mutate(round_id = round(as.numeric(Name))) %>% 
+    filter(round_id %in% X2024_sample_id.y_gi) %>%
+    select(-round_id)
+  
+  #kml_i_tiecall
+  
+   
+  st_write(kml_i_tiecall, 
+           paste0(dir_kml_saved, "kml_", sprintf("%02d", id), "_tiecall.kml"),
+           delete_dsn = TRUE,
+           quiet = TRUE)
+  
+
+  print(paste0(paste0("kml_", sprintf("%02d", id), "_tiecall.kml"), ": ", nrow(kml_i_tiecall), " features"))
+  
+  
+}
 
 
                                              

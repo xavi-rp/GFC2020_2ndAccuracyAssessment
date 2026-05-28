@@ -955,7 +955,13 @@ table_for_tie_callers <- scenario2_plusMissing %>%
   relocate(starts_with("X2024"), .after = location_id) %>% 
   left_join(region_names, by= c(X2026_groupid = "Strata")) %>% 
   relocate(Region...Countries, .before = X2026_groupid) %>% 
-  relocate(ID, .before = Region...Countries)
+  relocate(ID, .before = Region...Countries) %>% 
+  select(-c(X2024_groupid, X2024_sample_id.y)) %>%
+  arrange(
+    desc(X2026_groupid),
+    desc(X2026_sample_id)
+  ) 
+  
 
 
 
@@ -994,6 +1000,32 @@ for (id in region_names$ID) {
 
 
 #
+
+
+
+## Final check: given that in the GeoWiki, only the old 2024 primary sample is reported, make sure that 
+## these are the sample_id included in 'table_for_tie_callers'
+
+table_for_tie_callers
+View(table_for_tie_callers)
+
+X2024_sample_id_all <- table_for_tie_callers %>% 
+  select(X2024_sample_id.y)  %>%  
+  pull() #%>% #unique() %>% length()
+  
+
+sum(!X2024_sample_id_all %in% primary_data_latest$sample_id)    # 3794 come from the primary
+sum(X2024_sample_id_all %in% secondary_data_latest$sample_id)   #  267 come from the secondary
+
+3794 + 267  # 4061
+
+# The 267 need to be corrected!!!
+
+# After talking with Martina, we've decided not correcting this but using only the sample id from 2026
+# for the tie callers table and the GeoWiki
+  
+
+
 
 
 
@@ -1338,6 +1370,7 @@ date_part <- "20260507"
 kml_14 <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_14.kml"))
 #kml_14 <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_14_fixed_boundaryboxes.shp"))
 kml_12 <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_12.kml"))
+kml_10 <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_10.kml"))
 
 
 ## exploring some random samples
@@ -1380,7 +1413,7 @@ X2024_sample_id.y_g14 <- scenario2_plusMissing %>%
   pull(location_id) #%>% length() # 106 
   # is.na() %>% sum()  # 0 NAs
 
-X2024_sample_id.y_g14 <- primary_data_latest %>% 
+X2024_sample_id.y_g14 <- primary_data_latest %>%       # all X2024_sample_id.y coming from primary
   filter(location_id %in% X2024_sample_id.y_g14) %>% 
   pull(sample_id) #%>% length() # 106 
 
@@ -1441,14 +1474,18 @@ st_write(kml_13_tiecall,
 region_names <- read.csv(paste0(dir_geowiki, date_part, "_region_names.csv"))
 region_names
 
+region_names <- region_names %>% 
+  filter(ID == 10)
 
 for (id in region_names$ID) {
   #print(sprintf("%02d", id))
   kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", sprintf("%02d", id), ".kml"),
                    quiet = TRUE)
+  kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", "11", ".kml"),
+  #                 quiet = TRUE)
   strata_i <- region_names %>% 
     filter(ID == id) %>% 
-    pull(Strata)
+    pull(Strata)   # strata 2026
   
   
   X2024_sample_id.y <- scenario2_plusMissing %>% 
@@ -1457,20 +1494,40 @@ for (id in region_names$ID) {
   
   X2024_sample_id.y_gi <- primary_data_latest %>% 
     filter(location_id %in% X2024_sample_id.y) %>% 
-    pull(sample_id) 
+    pull(sample_id)
+  
+
+  
+  primary_location_sample <- primary_data_latest %>% 
+    filter(location_id %in% X2024_sample_id.y) %>% 
+    select(location_id, sample_id) %>% 
+    rename(Primary_sample_id = sample_id)
+  
+  X2026_SampleId_PrimarySampleId <- scenario2_plusMissing %>% 
+    filter(groupid == strata_i)  %>% 
+    select(location_id, sample_id) %>% 
+    rename(X2026_sample_id = sample_id) %>% 
+    left_join(primary_location_sample, by = "location_id") 
+  
+
   
   print(paste0(sprintf("%02d", id), " / ", strata_i, " : ", length(X2024_sample_id.y_gi), " samples"))
+  
+  
   
   
   # Create cleaned IDs only for matching
   kml_i_tiecall <- kml_i %>%
     mutate(round_id = round(as.numeric(Name))) %>% 
     filter(round_id %in% X2024_sample_id.y_gi) %>%
-    select(-round_id)
+    left_join(X2026_SampleId_PrimarySampleId, c("round_id" = "Primary_sample_id")) %>% 
+    select(-c(round_id, location_id, Name)) %>% 
+    arrange(X2026_sample_id) %>% 
+    rename(Name = X2026_sample_id)
   
-  #kml_i_tiecall
+  #kml_i_tiecall$Name
   
-   
+  
   st_write(kml_i_tiecall, 
            paste0(dir_kml_saved, "kml_", sprintf("%02d", id), "_tiecall.kml"),
            delete_dsn = TRUE,

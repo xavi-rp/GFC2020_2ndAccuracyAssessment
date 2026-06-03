@@ -1479,10 +1479,14 @@ region_names <- region_names %>%
 
 for (id in region_names$ID) {
   #print(sprintf("%02d", id))
-  kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", sprintf("%02d", id), ".kml"),
-                   quiet = TRUE)
-  kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", "11", ".kml"),
-  #                 quiet = TRUE)
+  if(sprintf("%02d", id) == "10"){
+    kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", "11", ".kml"),
+                                      quiet = TRUE)
+  }else{
+    kml_i <- st_read(paste0(dir_kml_orig, "IIASA_Primary_regions_", sprintf("%02d", id), ".kml"),
+                     quiet = TRUE)
+  }
+  
   strata_i <- region_names %>% 
     filter(ID == id) %>% 
     pull(Strata)   # strata 2026

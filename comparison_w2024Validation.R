@@ -1043,21 +1043,24 @@ nrow(primary_data_latest) # 21752
 
 
 secondary_data_latest <- read.csv(paste0(dir_old_results, "secondary_data_latest_adjusted.csv"))
+nrow(secondary_data_latest)  # 4000
 View(secondary_data_latest[1:10, ])
 
 sum(names(primary_data_latest) == names(secondary_data_latest))
 names(primary_data_latest)[!names(primary_data_latest) %in% names(secondary_data_latest)]
 
+## Criteria: Colditz et al., 2025 (p.27)
 
-## Criterion 1
+## Criterion 1: "High confidence" in 1st round
 crit1 <- primary_data_latest %>% 
   filter(name.3 == "high confidence") # %>% nrow()   # 20379
 
-nrow(crit1)
+nrow(crit1) # 20379
+names(crit1)
 names(crit1)
 
 crit1 <- crit1 %>% 
-  select(email, 
+  select(userid, email, 
          groupid,
          pixel_center_x, pixel_center_y,
          sample_id,
@@ -1069,6 +1072,7 @@ crit1 <- crit1 %>%
          name.7,
          comment) %>% 
   rename(
+    "X2024_userid" = "userid",
     "X2024_email" = "email",
     "X2024_groupid" = "groupid",
     "X2024_sample_id" = "sample_id",
@@ -1091,7 +1095,7 @@ crit1 <- crit1 %>%
 View(crit1)
 
 
-## Criterion 2
+## Criterion 2: from those not selected in crit1, "high confidence" in 2nd round
 
 crit2 <- secondary_data_latest %>% 
   filter(name.3 == "high confidence")  %>%   #nrow()   # 3542
@@ -1100,9 +1104,10 @@ crit2 <- secondary_data_latest %>%
 
 nrow(crit2)  # 1093
 sum(crit2$location_id %in% crit1$location_id)  # 0
+sum(crit1$location_id %in% crit2$location_id)  # 0
 
 crit2 <- crit2 %>% 
-  select(email, 
+  select(userid, email, 
          groupid,
          pixel_center_x, pixel_center_y,
          sample_id,
@@ -1113,6 +1118,7 @@ crit2 <- crit2 %>%
          name.5,
          comment.3) %>% 
   rename(
+    "X2024_userid" = "userid",
     "X2024_email" = "email",
     "X2024_groupid" = "groupid",
     "X2024_sample_id" = "sample_id",
@@ -1126,10 +1132,10 @@ crit2 <- crit2 %>%
   ) #%>% 
 
 View(crit2)
+crit2[1, ]
 
 
-
-## Criterion 3
+## Criterion 3: from the remaining, low confidence in both rounds if they agreed in FOR/NonFOR (first round is kept)
 
 remaining <- primary_data_latest %>% 
   filter_out(location_id %in% crit1$location_id) %>% 
@@ -1178,7 +1184,7 @@ crit3 <- primary_data_latest %>%
 nrow(crit3)
 
 crit3 <- crit3 %>% 
-  select(email, 
+  select(userid, email, 
          groupid,
          pixel_center_x, pixel_center_y,
          sample_id,
@@ -1189,6 +1195,7 @@ crit3 <- crit3 %>%
          name.7,
          comment.1) %>% 
   rename(
+    "X2024_userid" = "userid",
     "X2024_email" = "email",
     "X2024_groupid" = "groupid",
     "X2024_sample_id" = "sample_id",
@@ -1202,6 +1209,7 @@ crit3 <- crit3 %>%
   ) #%>% 
 
 View(crit3)
+crit3[1, ]
 
 
 ## Criterion 4: From the remaining sample, make a decision which interpretation to use (103)
@@ -1231,40 +1239,120 @@ crit4 <- data_1stAssessment %>%
   filter(location_id %in% ref_for_crit4)
 
 nrow(crit4) # 103
+crit4[1, ] %>% data.frame()
 
-crit4 <- crit4 %>% 
-  select(email_3, 
-         #groupid,
-         #pixel_center_x, pixel_center_y,
+
+origin_table <- bind_rows(
+  primary_data_latest %>%
+    semi_join(
+      crit4,
+      by = c(
+        "location_id" = "location_id",
+        "email" = "email_3"
+      )
+    ) %>%
+    transmute(
+      location_id,
+      source = "primary"
+    ),
+  secondary_data_latest %>%
+    semi_join(
+      crit4,
+      by = c(
+        "location_id" = "location_id",
+        "email" = "email_3"
+      )
+    ) %>%
+    transmute(
+      location_id,
+      source = "secondary"
+    )
+)
+
+head(origin_table)
+table(origin_table$source)
+
+
+loc_primary <- origin_table %>% 
+  filter(source == "primary") %>% 
+  pull(location_id)
+
+loc_primary
+
+crit4_prim <- primary_data_latest %>% 
+  filter(location_id %in% loc_primary) %>% 
+  select(userid, email, 
+         groupid,
+         pixel_center_x, pixel_center_y,
          sample_id,
          location_id,
-         forest_class_3,
-         confidence_level_3,
-         type_class_3,
-         class_issues_3,
-         #comment.1
-         ) %>% 
+         name.1,
+         name.3,
+         #name.5,
+         name.9,
+         name.7,
+         comment) %>% 
   rename(
-    "X2024_email" = "email_3",
-    #"X2024_groupid" = "groupid",
+    "X2024_userid" = "userid",
+    "X2024_email" = "email",
+    "X2024_groupid" = "groupid",
     "X2024_sample_id" = "sample_id",
     #"X2024_location_id" = "location_id",
-    "X2024_forest_class" = "forest_class_3",
+    "X2024_forest_class" = "name.1",
     #"2024_forest_class_num" = "forest_class_num_3",
-    "X2024_confidence_level" = "confidence_level_3",
-    "X2024_type_class" = "type_class_3",
-    "X2024_class_issues" = "class_issues_3",
-    #"X2024_comment" = "comment.1"
-  ) #%>%
+    "X2024_confidence_level" = "name.3",
+    "X2024_type_class" = "name.9",
+    "X2024_class_issues" = "name.7",
+    "X2024_comment" = "comment"
+  ) #%>% 
   
+nrow(crit4_prim)  # 42
+crit4_prim[1, ]
 
-missing_cols <- setdiff(names(crit1), names(crit4))
-crit4[missing_cols] <- NA
 
-crit4 <- crit4 %>%
-  select(all_of(names(crit1)))
 
+loc_secondary <- origin_table %>% 
+  filter(source == "secondary") %>% 
+  pull(location_id)
+
+loc_secondary
+
+crit4_secon <- secondary_data_latest %>% 
+  filter(location_id %in% loc_secondary) %>% 
+  select(userid, email, 
+         groupid,
+         pixel_center_x, pixel_center_y,
+         sample_id,
+         location_id,
+         name.1,
+         name.3,
+         name.7,
+         name.5,
+         comment.3) %>% 
+  rename(
+    "X2024_userid" = "userid",
+    "X2024_email" = "email",
+    "X2024_groupid" = "groupid",
+    "X2024_sample_id" = "sample_id",
+    #"X2024_location_id" = "location_id",
+    "X2024_forest_class" = "name.1",
+    #"2024_forest_class_num" = "forest_class_num_3",
+    "X2024_confidence_level" = "name.3",
+    "X2024_type_class" = "name.7",
+    "X2024_class_issues" = "name.5",
+    "X2024_comment" = "comment.3"
+  ) #%>% 
+
+nrow(crit4_secon)  # 61
+crit4_secon[1, ]
+
+
+crit4 <- rbind(crit4_prim, crit4_secon)
+
+nrow(crit4) # 103
 View(crit4)
+
+
 
 ## Remaining after 4 criteria: no assignation possible
 
@@ -1301,11 +1389,12 @@ input_file_df %>%
 
 
 
-## Full 2024 final file ####
+### Full 2024 final file ####
 
 full_2024_recreated <- rbind(crit1, crit2, crit3, crit4) #%>% nrow()
 
 nrow(full_2024_recreated) # 21728
+full_2024_recreated[1, ]
 View(full_2024_recreated)
 
 nrow(primary_data_latest) # 21752
@@ -1318,22 +1407,32 @@ secondary_data_latest %>%
   filter(location_id %in% unassigned_samples_refs) %>% nrow()
 
 
-m_old_groupid1 <- full_2024_recreated %>% 
-  filter(is.na(X2024_groupid)) %>% #nrow()
-  pull(location_id)
+#m_old_groupid1 <- full_2024_recreated %>% 
+#  filter(is.na(X2024_groupid)) %>% #nrow()
+#  pull(location_id)
+#
+#m_old_groupid11 <- primary_data_latest %>% 
+#  filter(location_id %in% m_old_groupid1) %>% 
+#  select(location_id, groupid) %>% 
+#  rename(X2024_groupid = groupid)
+#
+#full_2024_recreated <- full_2024_recreated %>%
+#  rows_patch(
+#    m_old_groupid11,
+#    by = "location_id"
+#  ) # %>% filter(is.na(X2024_groupid)) %>% nrow()
 
-m_old_groupid11 <- primary_data_latest %>% 
-  filter(location_id %in% m_old_groupid1) %>% 
-  select(location_id, groupid) %>% 
-  rename(X2024_groupid = groupid)
 
-full_2024_recreated <- full_2024_recreated %>%
-  rows_patch(
-    m_old_groupid11,
-    by = "location_id"
-  ) # %>% filter(is.na(X2024_groupid)) %>% nrow()
+unique(full_2024_recreated$X2024_groupid) %>% sort()
+unique(primary_data_latest$groupid) %>% sort()
+unique(secondary_data_latest$groupid) %>% sort()
 
+unique(full_2024_recreated$X2024_sample_id) %>% range()
+unique(primary_data_latest$sample_id) %>% range()
+unique(secondary_data_latest$sample_id) %>% range()
 
+# sample_id and groupid in the final recreated 2024 data set correspond either to round 1 or round 2
+# depending on the sample selected following the 4 criteria
 
 
 write.csv(full_2024_recreated, 

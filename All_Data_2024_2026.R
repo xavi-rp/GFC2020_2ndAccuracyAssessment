@@ -80,7 +80,7 @@ View(secondary_data_latest[1:10, ])
 valid_2024_2nd <- secondary_data_latest %>% 
   select(userid, email, 
          groupid,
-         pixel_center_x, pixel_center_y,
+         #pixel_center_x, pixel_center_y,
          sample_id,
          location_id,
          name.1,
@@ -92,8 +92,8 @@ valid_2024_2nd <- secondary_data_latest %>%
     "X2024_2nd_userid" = "userid",
     "X2024_2nd_email" = "email",
     "X2024_2nd_groupid" = "groupid",
-    "X2024_2nd_pixel_center_x" = "pixel_center_x",
-    "X2024_2nd_pixel_center_y" = "pixel_center_y",
+    #"X2024_2nd_pixel_center_x" = "pixel_center_x",
+    #"X2024_2nd_pixel_center_y" = "pixel_center_y",
     "X2024_2nd_sample_id" = "sample_id",
     #"X2024_2nd_location_id" = "location_id",
     "X2024_2nd_forest_class" = "name.1",
@@ -117,3 +117,56 @@ full_2024_recreated <- read.csv(paste0(dir_1stAssessment, "final_2024_recreated.
 
 nrow(full_2024_recreated) # 21728
 nrow(primary_data_latest) - nrow(full_2024_recreated)  # 24 not assigned after 2024 
+
+head(full_2024_recreated)
+apply(full_2024_recreated, 2, function(x) sum(is.na(x)))
+
+
+valid_2024_final <- full_2024_recreated %>%
+  select(starts_with(c("loc", "X2024"))) %>%
+  rename_with(~ str_replace(.x, "^X2024", "X2024_final")) 
+
+head(valid_2024_final)
+
+
+
+
+
+## 2026 first round ####
+
+
+
+
+
+
+#
+
+
+
+
+
+## All rounds together ####
+
+valid_2024_1st %>% head()
+valid_2024_2nd %>% head()
+valid_2024_1st %>% nrow()  # 21752
+valid_2024_2nd %>% nrow()  #  4000
+unique(valid_2024_1st$location_id) %>% length()
+unique(valid_2024_2nd$location_id) %>% length()
+
+
+valid_all <- valid_2024_1st %>% 
+  full_join(valid_2024_2nd, by = "location_id") %>%
+  #  full_join(valid_2024_2nd, by = "location_id") %>%  nrow()
+  relocate(location_id) %>% 
+  full_join(valid_2024_final, by = "location_id")
+
+
+valid_all %>% head()
+valid_all %>% nrow()  # 21752
+apply(valid_all, 2, function(x) sum(is.na(x)))
+
+
+
+
+

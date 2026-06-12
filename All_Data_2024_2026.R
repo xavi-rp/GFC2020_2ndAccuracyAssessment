@@ -37,7 +37,7 @@ names(primary_data_latest)
 valid_2024_1st <- primary_data_latest %>% 
   select(userid, email, 
          groupid,
-         pixel_center_x, pixel_center_y,
+         pixel_center_x, pixel_center_y,  # 85 do not have coordinates (missing coordinates already in 'primary_data_latest.csv')
          sample_id,
          location_id,
          name.1,
@@ -66,6 +66,7 @@ nrow(valid_2024_1st)  # 21752
 apply(valid_2024_1st, 2, function(x) sum(is.na(x)))
 #unique(valid_2024_1st$X2024_1st_comment)
 
+#valid_2024_1st %>% filter(is.na(X2024_1st_pixel_center_x)) %>% View()
 
 
 
@@ -129,12 +130,13 @@ valid_2024_final <- full_2024_recreated %>%
 head(valid_2024_final)
 
 sort(unique(valid_2024_final$X2024_final_groupid))
+apply(valid_2024_final, 2, function(x) sum(is.na(x)))
 
 
 
 ## 2026 first round ####
 
-data_2026_2024_clean <- read.csv(paste0(dir_geowiki, date_part, "_comparison_2026_2024_clean.csv"))
+data_2026_2024_clean <- read.csv(paste0(dir_geowiki, date_part_1, "_comparison_2026_2024_clean.csv"))
 
 
 data_2026_2024_clean[1:2, ]
@@ -142,6 +144,7 @@ data_2026_2024_clean[1:2, ]
 
 valid_2026_1st <- data_2026_2024_clean %>% 
   select(location_id, userid, email, groupid, sample_id,  
+         pixel_center_x.x, pixel_center_y.x,
          starts_with("GFC."), comment) %>%    # pull(groupid) %>% unique() %>% sort()
   mutate(type_class = coalesce(GFC.validation...forest.type, GFC.validation...other.land.use.type)) %>% #head()
   select(-GFC.validation...forest.type, -GFC.validation...other.land.use.type) %>% 
@@ -149,6 +152,8 @@ valid_2026_1st <- data_2026_2024_clean %>%
     "X2026_1st_userid" = "userid",
     "X2026_1st_email" = "email",
     "X2026_1st_groupid" = "groupid",
+    "X2026_1st_pixel_center_x" = "pixel_center_x.x",
+    "X2026_1st_pixel_center_y" = "pixel_center_y.x",
     "X2026_1st_sample_id" = "sample_id",
     "X2026_1st_forest_class" = "GFC.validation...forest",
     "X2026_1st_confidence_level" = "GFC.validation...confidence",
@@ -196,6 +201,17 @@ valid_all %>% head()
 valid_all %>% nrow()  # 21752
 apply(valid_all, 2, function(x) sum(is.na(x)))
 
+
+## Save data set
+write.csv(valid_all, 
+          paste0(dir_geowiki, "../AllValidations_2024_2026.csv"), 
+          row.names = FALSE)
+
+
+
+
+## Check that callers (users) have the same user_id along the calls ####
+
 user_check_1 <- valid_all %>% 
   select(X2024_1st_userid, X2024_1st_email) %>% 
   distinct() %>%
@@ -222,3 +238,53 @@ user_check_1 %>%
 ## using Xavi's credentials.
 ## The rest should be checked with Rene
 
+
+
+
+## Check that the coordinates are consistent ####
+
+valid_all %>% 
+  select(location_id, contains("pixel")) %>% #head()
+  #View()
+  filter(
+    !is.na(X2024_1st_pixel_center_x),
+    !is.na(X2026_1st_pixel_center_x),
+    #round(X2024_1st_pixel_center_x, 5) != round(X2026_1st_pixel_center_x, 5)
+    round(X2024_1st_pixel_center_x, 3) != round(X2026_1st_pixel_center_x, 3)
+  ) %>% #nrow()
+  View()   ## There's only one sample with different coordinates (150km apart, mostly due to )
+           ## It's location_id = 1955078. I've checked and the error comes from
+           ## the original file shared by IIASA
+
+## I've also realised that pixel_center_x/y and sample_x/y are slightly different,
+## a few meters (approx 20m)
+
+
+#valid_all %>% 
+#  select(location_id, contains("pixel")) %>%
+#  slice({
+#    i <- which(location_id == 1955078)
+#    (i - 1):(i + 1)
+#  })
+  
+
+valid_all %>% 
+  select(contains("pixel")) %>% #head()
+  #View()
+  filter(
+    is.na(X2024_1st_pixel_center_x),
+    is.na(X2026_1st_pixel_center_x)
+  ) %>% nrow()   ## 0  If needed, the missing coordinates in 2024_1st could be retrieved from the 
+                 ##    2026_1st round
+  
+
+
+apply(valid_all, 2, function(x) sum(is.na(x)))
+
+
+  
+  
+  
+  
+  
+  

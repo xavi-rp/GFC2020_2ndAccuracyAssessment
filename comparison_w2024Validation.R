@@ -1026,6 +1026,374 @@ sum(X2024_sample_id_all %in% secondary_data_latest$sample_id)   #  267 come from
   
 
 
+#____________________#
+#____________________#
+#____________________#
+
+
+
+
+## statistics of "no assignments", including in "issues" ####
+
+## 2026 1st call:
+date_part <- "20260507"
+
+
+dataset_modified_latest <-read.csv(paste0(dir, date_part, "_data_latest.csv"))
+
+nrow(dataset_modified_latest)   # 13764
+
+#apply(dataset_modified_latest, 2, function(x) sum(x == "no assignment", na.rm = TRUE))
+
+
+# count of "no assignment" in each column
+
+dataset_modified_latest %>%
+  summarise(
+    across(
+      c(
+        GFC.validation...forest,
+        GFC.validation...confidence,
+        GFC.validation...Issues.with.class.assignment
+      ),
+      ~ sum(.x == "no assignment", na.rm = TRUE)
+    )
+  )
+
+
+# rows that have NA both in forest.type and land.use.type
+dataset_modified_latest %>%
+  filter(
+    is.na(`GFC.validation...forest.type`) &
+      is.na(`GFC.validation...other.land.use.type`)
+  ) %>%
+  nrow()
+
+
+# rows where at least one of those three columns contains "no assignment"
+dataset_modified_latest %>%
+  filter(
+    if_any(
+      c(
+        GFC.validation...forest,
+        GFC.validation...confidence,
+        GFC.validation...Issues.with.class.assignment
+      ),
+      ~ .x == "no assignment"
+    ) |
+      (
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      )
+  ) %>% nrow()
+
+
+
+# summarising all in a table
+summary_tab <- tibble(
+  NoAssignments = c(
+    "No assignment in For/Non-For",
+    "No assignment in Confidence",
+    "No assignment in forest.type/land.use.type",
+    "No assignment in Issues",
+    "Rows with no assignment in any",
+    "Total samples assessed"
+  ),
+  X2026_1stCall = c(
+    sum(dataset_modified_latest$GFC.validation...forest == "no assignment", na.rm = TRUE),
+    sum(dataset_modified_latest$GFC.validation...confidence == "no assignment", na.rm = TRUE),
+    
+    dataset_modified_latest %>%
+      filter(
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      ) %>%
+      nrow(),
+    
+    sum(dataset_modified_latest$GFC.validation...Issues.with.class.assignment == "no assignment", na.rm = TRUE),
+    
+    dataset_modified_latest %>%
+      filter(
+        if_any(
+          c(
+            GFC.validation...forest,
+            GFC.validation...confidence,
+            GFC.validation...Issues.with.class.assignment
+          ),
+          ~ .x == "no assignment"
+        ) |
+          (
+            is.na(`GFC.validation...forest.type`) &
+              is.na(`GFC.validation...other.land.use.type`)
+          )
+      ) %>% nrow(),
+    
+    dataset_modified_latest %>% nrow()
+  )
+)
+
+summary_tab
+
+#
+
+
+
+
+
+## 2026 Tie call:
+date_part <- "20260610"
+
+dataset_modified_latest_2ndRound <- read.csv(paste0(dir, date_part, "_data_latest_TieCall.csv"))
+
+nrow(dataset_modified_latest_2ndRound)   # 4061
+
+
+# summarising all in a table
+summary_tab_tie <- tibble(
+  NoAssignments = c(
+    "No assignment in For/Non-For",
+    "No assignment in Confidence",
+    "No assignment in forest.type/land.use.type",
+    "No assignment in Issues",
+    "Rows with no assignment in any",
+    "Total samples assessed"
+  ),
+  X2026_TieCall = c(
+    sum(dataset_modified_latest_2ndRound$GFC.validation...forest == "no assignment", na.rm = TRUE),
+    sum(dataset_modified_latest_2ndRound$GFC.validation...confidence == "no assignment", na.rm = TRUE),
+    
+    dataset_modified_latest_2ndRound %>%
+      filter(
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      ) %>%
+      nrow(),
+    
+    sum(dataset_modified_latest_2ndRound$GFC.validation...Issues.with.class.assignment == "no assignment", na.rm = TRUE),
+    
+    dataset_modified_latest_2ndRound %>%
+      filter(
+        if_any(
+          c(
+            GFC.validation...forest,
+            GFC.validation...confidence,
+            GFC.validation...Issues.with.class.assignment
+          ),
+          ~ .x == "no assignment"
+        ) |
+          (
+            is.na(`GFC.validation...forest.type`) &
+              is.na(`GFC.validation...other.land.use.type`)
+          )
+      ) %>% nrow(),
+    
+    dataset_modified_latest_2ndRound %>% nrow()
+  )
+)
+
+summary_tab_tie
+
+summary_tab <- summary_tab %>% 
+  left_join(summary_tab_tie)
+
+summary_tab
+
+#
+
+
+
+## writing summary table
+#write_xlsx(summary_tab,
+#           paste0(dir, "2026_Summary_NoAssignment.xlsx"))
+
+
+
+
+## statistics of "no assignments", including in "issues", by strata ####
+
+summary_1st <- dataset_modified_latest %>%
+  group_by(groupid) %>%
+  summarise(
+    NoAssignment_ForNonFor =
+      sum(GFC.validation...forest == "no assignment", na.rm = TRUE),
+    
+    NoAssignment_Confidence =
+      sum(GFC.validation...confidence == "no assignment", na.rm = TRUE),
+    
+    NoAssignment_ForestType_LandUseType =
+      sum(
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      ),
+    
+    NoAssignment_Issues =
+      sum(
+        GFC.validation...Issues.with.class.assignment == "no assignment",
+        na.rm = TRUE
+      ),
+    
+    NoAssignment_Any =
+      sum(
+        if_any(
+          c(
+            GFC.validation...forest,
+            GFC.validation...confidence,
+            GFC.validation...Issues.with.class.assignment
+          ),
+          ~ .x == "no assignment"
+        ) |
+          (
+            is.na(`GFC.validation...forest.type`) &
+              is.na(`GFC.validation...other.land.use.type`)
+          )
+      ),
+    
+    TotalSamples = n(),
+    
+    .groups = "drop"
+  )
+
+summary_1st 
+
+
+
+summary_tie <- dataset_modified_latest_2ndRound %>%
+  group_by(groupid) %>%
+  summarise(
+    NoAssignment_ForNonFor =
+      sum(GFC.validation...forest == "no assignment", na.rm = TRUE),
+    
+    NoAssignment_Confidence =
+      sum(GFC.validation...confidence == "no assignment", na.rm = TRUE),
+    
+    NoAssignment_ForestType_LandUseType =
+      sum(
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      ),
+    
+    NoAssignment_Issues =
+      sum(
+        GFC.validation...Issues.with.class.assignment == "no assignment",
+        na.rm = TRUE
+      ),
+    
+    NoAssignment_Any =
+      sum(
+        if_any(
+          c(
+            GFC.validation...forest,
+            GFC.validation...confidence,
+            GFC.validation...Issues.with.class.assignment
+          ),
+          ~ .x == "no assignment"
+        ) |
+          (
+            is.na(`GFC.validation...forest.type`) &
+              is.na(`GFC.validation...other.land.use.type`)
+          )
+      ),
+    
+    TotalSamples = n(),
+    
+    .groups = "drop"
+  )
+
+summary_tie
+
+
+
+
+## Adding references
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", 
+                                                 n_max = 15, sheet = "Main") 
+
+View(Reference_data_2026_strata)
+
+ref_2026 <- Reference_data_2026_strata %>% 
+  filter(!is.na(ID2026_1)) %>% 
+  select(ID...18, `Region / Countries...19`, 
+         ID2026_1, `2026 Interpreters1`, 
+         ID2026_Tie, `2026 Tie caller`) %>% 
+  rename("ID" = "ID...18",
+         "Region" = `Region / Countries...19`)
+
+
+
+summary_1st <- ref_2026 %>% 
+  select(ID, Region, ID2026_1, `2026 Interpreters1`) %>% 
+  left_join(summary_1st, by = c("ID2026_1" = "groupid"))
+
+summary_1st <-  bind_rows(
+  summary_1st,
+  summary_1st %>%
+    summarise(
+      across(
+        -c(ID, Region, ID2026_1, `2026 Interpreters1`),
+        ~ sum(.x, na.rm = TRUE)
+      )
+    )
+)
+
+
+
+summary_tie <- ref_2026 %>% 
+  select(ID, Region, ID2026_Tie, `2026 Tie caller`) %>% 
+  left_join(summary_tie, by = c("ID2026_Tie" = "groupid")) 
+
+summary_tie <-  bind_rows(
+  summary_tie,
+  summary_tie %>%
+    summarise(
+      across(
+        -c(ID, Region, ID2026_Tie, `2026 Tie caller`),
+        ~ sum(.x, na.rm = TRUE)
+      )
+    )
+)
+
+
+summary_tie
+
+
+
+
+
+
+#summary_bygroup <- left_join(
+#  summary_1st,
+#  summary_tie,
+#  by = "groupid",
+#  suffix = c("_1stCall", "_TieCall")
+#)
+#
+#summary_bygroup
+
+
+## writing summary tables
+#write_xlsx(summary_1st,
+#           paste0(dir, "2026_1stCall_Summary_NoAssignment_bygroup.xlsx"))
+#
+#write_xlsx(summary_tie,
+#           paste0(dir, "2026_TieCall_Summary_NoAssignment_bygroup.xlsx"))
+
+
+
+write.xlsx(
+  list(
+    `2026_Summary_NoAssignment` = summary_tab,
+    `2026_1stCall_Summary_bygroup` = summary_1st,
+    `2026_TieCall_Summary_bygroup` = summary_tie
+  ),
+  file = paste0(dir, "2026_Summary_NoAssignment.xlsx"),
+  overwrite = TRUE
+)
+
+
+
+#__________________#
+#__________________#
+#__________________#
 
 
 

@@ -1033,7 +1033,28 @@ sum(X2024_sample_id_all %in% secondary_data_latest$sample_id)   #  267 come from
 
 
 
-## statistics of "no assignments", including in "issues" ####
+## Statistics of "no assignments", including in "issues" ####
+
+dir <- "/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_Second/geowiki_2026/"
+
+## References (for later)
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", 
+                                                 n_max = 15, sheet = "Main") 
+
+#View(Reference_data_2026_strata)
+head(Reference_data_2026_strata)
+
+
+ref_2026 <- Reference_data_2026_strata %>% 
+  filter(!is.na(ID2026_1)) %>% 
+  select(ID...18, `Region / Countries...19`, 
+         ID2026_1, `2026 Interpreters1`, 
+         ID2026_Tie, `2026 Tie caller`) %>% 
+  rename("ID" = "ID...18",
+         "Region" = `Region / Countries...19`)
+
+
+
 
 ## 2026 1st call:
 date_part <- "20260507"
@@ -1148,7 +1169,67 @@ dataset_modified_latest_2ndRound <- read.csv(paste0(dir, date_part, "_data_lates
 nrow(dataset_modified_latest_2ndRound)   # 4061
 
 
+
+# rows where at least one of those three columns contains "no assignment"
+
+dataset_modified_latest_2ndRound_NoAssig <- dataset_modified_latest_2ndRound %>%
+  filter(
+    if_any(
+      c(
+        GFC.validation...forest,
+        GFC.validation...confidence,
+        GFC.validation...Issues.with.class.assignment
+      ),
+      ~ .x == "no assignment"
+    ) |
+      (
+        is.na(`GFC.validation...forest.type`) &
+          is.na(`GFC.validation...other.land.use.type`)
+      )
+  ) %>%  
+  select(#"userid", 
+         "email",
+         "groupid", "location_id",
+         "GFC.validation...forest", "GFC.validation...confidence", "GFC.validation...forest.type",
+         "GFC.validation...other.land.use.type", "GFC.validation...Issues.with.class.assignment", "comment")
+
+
+ref_2026_tie <- ref_2026 %>% 
+  select("ID", "Region", "ID2026_Tie", `2026 Tie caller`)
+
+table_for_tie_callers <- read.csv(paste0(dir_geowiki, "20260507", "_samples_reingestion_2026_forTieCallers.csv"))
+table_for_tie_callers_splid <- table_for_tie_callers %>% 
+  select("location_id", "X2026_sample_id")
+
+
+dataset_modified_latest_2ndRound_NoAssig <- dataset_modified_latest_2ndRound_NoAssig %>%  #names()#View()
+  left_join(ref_2026_tie, by = c("groupid" = "ID2026_Tie")) %>% #names()#View()
+  left_join(table_for_tie_callers_splid, by = "location_id") %>% #names()
+  select(
+    ID,
+    groupid,
+    Region,
+    `2026 Tie caller`,
+    email,
+    location_id,
+    X2026_sample_id,
+    GFC.validation...forest,
+    GFC.validation...confidence,
+    GFC.validation...forest.type,
+    GFC.validation...other.land.use.type,
+    GFC.validation...Issues.with.class.assignment,
+    comment,
+    everything()
+  ) %>% #View()
+  rename("X2026_groupid_TieCall" = "groupid") #%>% View() #nrow()
+
+
+write_xlsx(dataset_modified_latest_2ndRound_NoAssig,
+           paste0(dir, "2026_TieCall_NoAssignment.xlsx"))
+
+
 # summarising all in a table
+
 summary_tab_tie <- tibble(
   NoAssignments = c(
     "No assignment in For/Non-For",
@@ -1171,21 +1252,7 @@ summary_tab_tie <- tibble(
     
     sum(dataset_modified_latest_2ndRound$GFC.validation...Issues.with.class.assignment == "no assignment", na.rm = TRUE),
     
-    dataset_modified_latest_2ndRound %>%
-      filter(
-        if_any(
-          c(
-            GFC.validation...forest,
-            GFC.validation...confidence,
-            GFC.validation...Issues.with.class.assignment
-          ),
-          ~ .x == "no assignment"
-        ) |
-          (
-            is.na(`GFC.validation...forest.type`) &
-              is.na(`GFC.validation...other.land.use.type`)
-          )
-      ) %>% nrow(),
+    dataset_modified_latest_2ndRound_NoAssig %>% nrow(),
     
     dataset_modified_latest_2ndRound %>% nrow()
   )
@@ -1305,20 +1372,6 @@ summary_tie
 
 
 ## Adding references
-Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", 
-                                                 n_max = 15, sheet = "Main") 
-
-View(Reference_data_2026_strata)
-
-ref_2026 <- Reference_data_2026_strata %>% 
-  filter(!is.na(ID2026_1)) %>% 
-  select(ID...18, `Region / Countries...19`, 
-         ID2026_1, `2026 Interpreters1`, 
-         ID2026_Tie, `2026 Tie caller`) %>% 
-  rename("ID" = "ID...18",
-         "Region" = `Region / Countries...19`)
-
-
 
 summary_1st <- ref_2026 %>% 
   select(ID, Region, ID2026_1, `2026 Interpreters1`) %>% 

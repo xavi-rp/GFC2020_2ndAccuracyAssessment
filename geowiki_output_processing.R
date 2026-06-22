@@ -20,6 +20,9 @@ dir <- "/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_Second/geowiki_2026/"
 
 input_file <- "2026_05_07_valgroup85_exports_GFC_2020.csv"
 input_file <- "20260610_valgroup85_exports_GFC_2020.csv"   ## This DB contains the two 2026 rounds
+input_file <- "20260616_valgroup85_exports_GFC_2020.csv"   ## This DB contains the two 2026 rounds + the Tie Call fixed 'no asssignments'
+input_file <- "20260622_valgroup85_exports_GFC_2020.csv"   ## This DB contains the two 2026 rounds + the Tie Call fixed 'no asssignments', and the 
+                                                           ## 2026 First call fixed 'no assignments'
 
 input_file <- paste0(dir, input_file)
 
@@ -27,6 +30,8 @@ input_file <- paste0(dir, input_file)
 # Extract date (YYYYMMDD)
 date_part <- "20260507"
 date_part <- "20260610"
+date_part <- "20260616"
+date_part <- "20260622"
 
 
 
@@ -37,7 +42,7 @@ input_file_df <- read.csv(input_file, sep = ";") # col 'name' is repeated. Trans
 
 
 head(input_file_df)
-nrow(input_file_df)  # 56007, 72612
+nrow(input_file_df)  # 56007, 72612, 72868, 73716
 ncol(input_file_df)  # 18
 names(input_file_df)
 
@@ -64,7 +69,7 @@ write.csv(input_file_df,
 
 
 # ---- 4 & 5) Remove commas and quotation marks ----
-View(input_file_df)
+#View(input_file_df)
 
 # just to be sure if there are
 checks <- input_file_df %>%
@@ -152,7 +157,7 @@ nrow(dataset_modified)
 unique(dataset_modified$name)     
 unique(dataset_modified$name.1)
 
-length(unique(dataset_modified$validation_id))  # 14019 validations, 18171 (second round)
+length(unique(dataset_modified$validation_id))  # 14019 validations, 18171 (second round), 18235 (Tie call revision), 18447 (1sst call revision)
 nrow(dataset_modified)                          # total file rows (still several row per validation)
 
 table(dataset_modified$name)
@@ -189,8 +194,8 @@ nrow(dataset_modified_wide)
 
 head(sort(table(dataset_modified_wide$validation_id)), 10)
 tail(sort(table(dataset_modified_wide$validation_id)), 10)
-sum(table(dataset_modified_wide$validation_id) == 4)  # 13950, 18099
-sum(table(dataset_modified_wide$validation_id) == 3)  #    69, 72 
+sum(table(dataset_modified_wide$validation_id) == 4)  # 13950, 18099, 18163, 18375
+sum(table(dataset_modified_wide$validation_id) == 3)  #    69, 72, 72, 72
 
 
 
@@ -205,11 +210,11 @@ dataset_modified_wide_1row <- dataset_modified_wide %>%
   relocate(starts_with("GFC"), .after = last_col()) %>%
   relocate(comment, .after = last_col())
 
-View(dataset_modified_wide_1row)
+#View(dataset_modified_wide_1row)
 
 
-dataset_modified_wide_1row[dataset_modified_wide_1row$validation_id == 2936848, ] %>% View() 
-dataset_modified_wide_1row[dataset_modified_wide_1row$validation_id == 2959057, ] %>% View() 
+#dataset_modified_wide_1row[dataset_modified_wide_1row$validation_id == 2936848, ] %>% View() 
+#dataset_modified_wide_1row[dataset_modified_wide_1row$validation_id == 2959057, ] %>% View() 
 
 
 
@@ -225,9 +230,9 @@ write.csv(dataset_modified_wide_1row,
 
 ## are there samples which have several validations?
 
-length(unique(dataset_modified_wide$validation_id)) # 14019, because some sample units were validated more than once. 18171
-length(unique(dataset_modified_wide$sample_id))     # 13764, which is the number of sample units to be validated in this round. 17825
-                                                    # correct
+length(unique(dataset_modified_wide$validation_id)) # 14019, because some sample units were validated more than once. 18171, 18235
+length(unique(dataset_modified_wide$sample_id))     # 13764, which is the number of sample units to be validated in this round. 17825, 17825
+                                                    # correct (13764 + 4061)
 
 
 
@@ -236,10 +241,10 @@ dataset_modified_latest <- dataset_modified_wide_1row %>%
   slice_max(validation_id, n = 1, with_ties = FALSE) %>% 
   ungroup()
 
-View(dataset_modified_latest)
-nrow(dataset_modified_latest)   # 13764, 17825
+#View(dataset_modified_latest)
+nrow(dataset_modified_latest)   # 13764, 17825, 17825, 17825
 
-
+13764 - 17825 # 4061
 
 
 write.csv(dataset_modified_latest, 
@@ -247,9 +252,26 @@ write.csv(dataset_modified_latest,
           row.names = FALSE)
 
 
+# '20260622_data_latest.csv' is the complete final dataset
+
+
 
 dataset_modified_latest_2ndRound <- dataset_modified_latest %>% 
-  filter(timestamp > as.Date("2026/05/18")) #%>% nrow()  # 4061, correct (2nd round)
+  #filter(timestamp > as.Date("2026/05/18")) %>% nrow()  # 4061, correct (2nd round, Tie Call, including 64 revisions)
+                                                        # 4272 - 4061  # 211 (1st call revision)
+  filter(timestamp > as.Date("2026/05/18") & timestamp < as.Date("2026/06/18")) #%>% nrow()
+
+dataset_modified_latest %>% 
+  filter(timestamp >= as.Date("2026/06/15")) %>% nrow()  # 64, correct (Tie Call revision); 275, correct (Tie Call revision + 1st round revision) 
+
+dataset_modified_latest %>% 
+  filter(timestamp < as.Date("2026/06/15")) %>% nrow()  # 17761, correct (13764 + 4061 - 64)
+                                                        # 17550, correct (13764 + 4061 - 64 - 211)
+
+
+nrow(dataset_modified_latest_2ndRound)  # 4061
+head(dataset_modified_latest_2ndRound)  # 4061
+
 
 write.csv(dataset_modified_latest_2ndRound, 
           paste0(dir, date_part, "_data_latest_TieCall.csv"), 
@@ -290,11 +312,12 @@ View(dataset_modified_latest)
 
 
 # ---- 11) Replace "no assignment" with "no issue" under "issues" ----
+# ______________ This NOT to be used _________________________________ 
 
 View(dataset_modified_latest)
 
 table(sort(dataset_modified_latest$`GFC validation - Issues with class assignment`))
-sum(dataset_modified_latest$`GFC validation - Issues with class assignment` == "no assignment", na.rm = TRUE)  # 97, 119
+sum(dataset_modified_latest$`GFC validation - Issues with class assignment` == "no assignment", na.rm = TRUE)  # 97, 119, 97
 sum(is.na(dataset_modified_latest$`GFC validation - Issues with class assignment`))   # 0 NAs
 
 
@@ -308,21 +331,27 @@ table(sort(dataset_modified_latest_adjusted$`GFC validation - Issues with class 
 sum(dataset_modified_latest_adjusted$`GFC validation - Issues with class assignment` == "no assignment", na.rm = TRUE)  # 0
 
 
-
 write.csv(dataset_modified_latest_adjusted, 
           paste0(dir, date_part, "_data_latest_adjusted.csv"), 
           row.names = FALSE)
 
 
-View(dataset_modified_latest_adjusted)
-nrow(dataset_modified_latest_adjusted) # 13764
+#View(dataset_modified_latest_adjusted)
+nrow(dataset_modified_latest_adjusted) # 13764, 17825
 
 
 dataset_modified_latest_adjusted %>% 
   filter(timestamp < as.Date("2026/05/18")) %>% nrow()  # 13764, correct (1st round)
 
 dataset_modified_latest_adjusted_2ndRound <- dataset_modified_latest_adjusted %>% 
-  filter(timestamp > as.Date("2026/05/18")) #%>% nrow()  # 4061, correct (2nd round)
+  filter(timestamp > as.Date("2026/05/18")) #%>% nrow()  # 4061, correct (2nd round + revision)
+
+dataset_modified_latest_adjusted %>% 
+  filter(timestamp >= as.Date("2026/06/15")) %>% nrow()  # 64, correct (2nd round revision)
+
+dataset_modified_latest_adjusted %>% 
+  filter(timestamp < as.Date("2026/06/15")) %>% nrow()  # 17761 (+ 64 = 17825), correct (1st round, 2nd round)
+
 
 
 
@@ -338,7 +367,7 @@ write.csv(dataset_modified_latest_adjusted_2ndRound,
 
 
 ## Check for completeness (1st round) ####
-Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", n_max = 15)
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", n_max = 15, sheet = "Main")
 
 nrow(Reference_data_2026_strata)
 names(Reference_data_2026_strata)
@@ -346,9 +375,9 @@ sort(Reference_data_2026_strata$ID2)
 
 Ref_strata <- Reference_data_2026_strata %>% 
   filter(ID2 %in% c(284, 285, 286, 287, 288, 291, 292, 293, 294)) %>%
-  select(ID2, `Region / Countries`, `Sample units...10`) %>%
+  select(ID2, `Region / Countries...3`, `Sample units...11`) %>%
   rename("ID2_2024" = "ID2")  %>%
-  rename("Sample_units_for_valid" = `Sample units...10`) 
+  rename("Sample_units_for_valid" = `Sample units...11`) 
 
 
 
@@ -358,12 +387,12 @@ unique(dataset_modified_latest_adjusted$groupid)
 
 table(dataset_modified_latest_adjusted$groupid) 
 
-SampleUnits_validated <- table(dataset_modified_latest_adjusted$groupid) %>% 
+SampleUnits_validated <- table(dataset_modified_latest$groupid) %>% 
   as.data.frame() %>%
   rename("groupid_2026" = "Var1")  %>%
   rename("Sample_units_validated_2026" = "Freq") 
 
-check_completeness <- cbind(Ref_strata, SampleUnits_validated)
+check_completeness <- cbind(Ref_strata, SampleUnits_validated) %>% slice(1:9)
 check_completeness
 
 check_completeness_ft <- flextable::flextable(check_completeness)
@@ -380,358 +409,3 @@ write.csv(check_completeness,
 
 
 
-## statistics of "no assignments", including in "issues" ####
-
-## 2026 1st call:
-date_part <- "20260507"
-
-
-dataset_modified_latest <-read.csv(paste0(dir, date_part, "_data_latest.csv"))
-
-nrow(dataset_modified_latest)   # 13764
-
-#apply(dataset_modified_latest, 2, function(x) sum(x == "no assignment", na.rm = TRUE))
-
-
-# count of "no assignment" in each column
-
-dataset_modified_latest %>%
-  summarise(
-    across(
-      c(
-        GFC.validation...forest,
-        GFC.validation...confidence,
-        GFC.validation...Issues.with.class.assignment
-      ),
-      ~ sum(.x == "no assignment", na.rm = TRUE)
-    )
-  )
-
-
-# rows that have NA both in forest.type and land.use.type
-dataset_modified_latest %>%
-  filter(
-    is.na(`GFC.validation...forest.type`) &
-      is.na(`GFC.validation...other.land.use.type`)
-  ) %>%
-  nrow()
-
-
-# rows where at least one of those three columns contains "no assignment"
-dataset_modified_latest %>%
-  filter(
-    if_any(
-      c(
-        GFC.validation...forest,
-        GFC.validation...confidence,
-        GFC.validation...Issues.with.class.assignment
-      ),
-      ~ .x == "no assignment"
-    ) |
-      (
-        is.na(`GFC.validation...forest.type`) &
-          is.na(`GFC.validation...other.land.use.type`)
-      )
-  ) %>% nrow()
-
-
-
-# summarising all in a table
-summary_tab <- tibble(
-  NoAssignments = c(
-    "No assignment in For/Non-For",
-    "No assignment in Confidence",
-    "No assignment in forest.type/land.use.type",
-    "No assignment in Issues",
-    "Rows with no assignment in any",
-    "Total samples assessed"
-  ),
-  X2026_1stCall = c(
-    sum(dataset_modified_latest$GFC.validation...forest == "no assignment", na.rm = TRUE),
-    sum(dataset_modified_latest$GFC.validation...confidence == "no assignment", na.rm = TRUE),
-    
-    dataset_modified_latest %>%
-      filter(
-        is.na(`GFC.validation...forest.type`) &
-          is.na(`GFC.validation...other.land.use.type`)
-      ) %>%
-      nrow(),
-    
-    sum(dataset_modified_latest$GFC.validation...Issues.with.class.assignment == "no assignment", na.rm = TRUE),
-    
-    dataset_modified_latest %>%
-      filter(
-        if_any(
-          c(
-            GFC.validation...forest,
-            GFC.validation...confidence,
-            GFC.validation...Issues.with.class.assignment
-          ),
-          ~ .x == "no assignment"
-        ) |
-          (
-            is.na(`GFC.validation...forest.type`) &
-              is.na(`GFC.validation...other.land.use.type`)
-          )
-      ) %>% nrow(),
-    
-    dataset_modified_latest %>% nrow()
-  )
-)
-
-summary_tab
-
-#
-
-
-
-
-
-## 2026 Tie call:
-date_part <- "20260610"
-
-dataset_modified_latest_2ndRound <- read.csv(paste0(dir, date_part, "_data_latest_TieCall.csv"))
-
-nrow(dataset_modified_latest_2ndRound)   # 4061
-
-
-# summarising all in a table
-summary_tab_tie <- tibble(
-  NoAssignments = c(
-    "No assignment in For/Non-For",
-    "No assignment in Confidence",
-    "No assignment in forest.type/land.use.type",
-    "No assignment in Issues",
-    "Rows with no assignment in any",
-    "Total samples assessed"
-  ),
-  X2026_TieCall = c(
-    sum(dataset_modified_latest_2ndRound$GFC.validation...forest == "no assignment", na.rm = TRUE),
-    sum(dataset_modified_latest_2ndRound$GFC.validation...confidence == "no assignment", na.rm = TRUE),
-    
-    dataset_modified_latest_2ndRound %>%
-      filter(
-        is.na(`GFC.validation...forest.type`) &
-          is.na(`GFC.validation...other.land.use.type`)
-      ) %>%
-      nrow(),
-    
-    sum(dataset_modified_latest_2ndRound$GFC.validation...Issues.with.class.assignment == "no assignment", na.rm = TRUE),
-    
-    dataset_modified_latest_2ndRound %>%
-      filter(
-        if_any(
-          c(
-            GFC.validation...forest,
-            GFC.validation...confidence,
-            GFC.validation...Issues.with.class.assignment
-          ),
-          ~ .x == "no assignment"
-        ) |
-          (
-            is.na(`GFC.validation...forest.type`) &
-              is.na(`GFC.validation...other.land.use.type`)
-          )
-      ) %>% nrow(),
-    
-    dataset_modified_latest_2ndRound %>% nrow()
-  )
-)
-
-summary_tab_tie
-
-summary_tab <- summary_tab %>% 
-  left_join(summary_tab_tie)
-
-summary_tab
-
-#
-
-
-
-## writing summary table
-#write_xlsx(summary_tab,
-#           paste0(dir, "2026_Summary_NoAssignment.xlsx"))
-
-
-
-
-## statistics of "no assignments", including in "issues", by strata ####
-
-summary_1st <- dataset_modified_latest %>%
-  group_by(groupid) %>%
-  summarise(
-    NoAssignment_ForNonFor =
-      sum(GFC.validation...forest == "no assignment", na.rm = TRUE),
-    
-    NoAssignment_Confidence =
-      sum(GFC.validation...confidence == "no assignment", na.rm = TRUE),
-    
-    NoAssignment_ForestType_LandUseType =
-      sum(
-        is.na(`GFC.validation...forest.type`) &
-          is.na(`GFC.validation...other.land.use.type`)
-      ),
-    
-    NoAssignment_Issues =
-      sum(
-        GFC.validation...Issues.with.class.assignment == "no assignment",
-        na.rm = TRUE
-      ),
-    
-    NoAssignment_Any =
-      sum(
-        if_any(
-          c(
-            GFC.validation...forest,
-            GFC.validation...confidence,
-            GFC.validation...Issues.with.class.assignment
-          ),
-          ~ .x == "no assignment"
-        ) |
-          (
-            is.na(`GFC.validation...forest.type`) &
-              is.na(`GFC.validation...other.land.use.type`)
-          )
-      ),
-    
-    TotalSamples = n(),
-    
-    .groups = "drop"
-  )
-
-summary_1st 
-
-
-
-summary_tie <- dataset_modified_latest_2ndRound %>%
-  group_by(groupid) %>%
-  summarise(
-    NoAssignment_ForNonFor =
-      sum(GFC.validation...forest == "no assignment", na.rm = TRUE),
-    
-    NoAssignment_Confidence =
-      sum(GFC.validation...confidence == "no assignment", na.rm = TRUE),
-    
-    NoAssignment_ForestType_LandUseType =
-      sum(
-        is.na(`GFC.validation...forest.type`) &
-          is.na(`GFC.validation...other.land.use.type`)
-      ),
-    
-    NoAssignment_Issues =
-      sum(
-        GFC.validation...Issues.with.class.assignment == "no assignment",
-        na.rm = TRUE
-      ),
-    
-    NoAssignment_Any =
-      sum(
-        if_any(
-          c(
-            GFC.validation...forest,
-            GFC.validation...confidence,
-            GFC.validation...Issues.with.class.assignment
-          ),
-          ~ .x == "no assignment"
-        ) |
-          (
-            is.na(`GFC.validation...forest.type`) &
-              is.na(`GFC.validation...other.land.use.type`)
-          )
-      ),
-    
-    TotalSamples = n(),
-    
-    .groups = "drop"
-  )
-
-summary_tie
-
-
-
-
-## Adding references
-Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", 
-                                                 n_max = 15, sheet = "Main") 
-
-View(Reference_data_2026_strata)
-
-ref_2026 <- Reference_data_2026_strata %>% 
-  filter(!is.na(ID2026_1)) %>% 
-  select(ID...18, `Region / Countries...19`, 
-         ID2026_1, `2026 Interpreters1`, 
-         ID2026_Tie, `2026 Tie caller`) %>% 
-  rename("ID" = "ID...18",
-         "Region" = `Region / Countries...19`)
-
-
-
-summary_1st <- ref_2026 %>% 
-  select(ID, Region, ID2026_1, `2026 Interpreters1`) %>% 
-  left_join(summary_1st, by = c("ID2026_1" = "groupid"))
-
-summary_1st <-  bind_rows(
-  summary_1st,
-  summary_1st %>%
-    summarise(
-      across(
-        -c(ID, Region, ID2026_1, `2026 Interpreters1`),
-        ~ sum(.x, na.rm = TRUE)
-      )
-    )
-)
-
-
-
-summary_tie <- ref_2026 %>% 
-  select(ID, Region, ID2026_Tie, `2026 Tie caller`) %>% 
-  left_join(summary_tie, by = c("ID2026_Tie" = "groupid")) 
-
-summary_tie <-  bind_rows(
-    summary_tie,
-    summary_tie %>%
-      summarise(
-        across(
-          -c(ID, Region, ID2026_Tie, `2026 Tie caller`),
-          ~ sum(.x, na.rm = TRUE)
-        )
-      )
-  )
-
-
-summary_tie
-
-
-
-
-
-
-#summary_bygroup <- left_join(
-#  summary_1st,
-#  summary_tie,
-#  by = "groupid",
-#  suffix = c("_1stCall", "_TieCall")
-#)
-#
-#summary_bygroup
-
-
-## writing summary tables
-#write_xlsx(summary_1st,
-#           paste0(dir, "2026_1stCall_Summary_NoAssignment_bygroup.xlsx"))
-#
-#write_xlsx(summary_tie,
-#           paste0(dir, "2026_TieCall_Summary_NoAssignment_bygroup.xlsx"))
-
-
-
-write.xlsx(
-  list(
-    `2026_Summary_NoAssignment` = summary_tab,
-    `2026_1stCall_Summary_bygroup` = summary_1st,
-    `2026_TieCall_Summary_bygroup` = summary_tie
-  ),
-  file = paste0(dir, "2026_Summary_NoAssignment.xlsx"),
-  overwrite = TRUE
-)

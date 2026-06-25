@@ -1,5 +1,10 @@
 
-
+#-------------------------------------------------------------#
+#-------------------------------------------------------------#
+#--------------  Script to merge all clean  ------------------#
+#--------------  validations (2024 - 2026)  ------------------#
+#-------------------------------------------------------------#
+#-------------------------------------------------------------#
 
 
 
@@ -196,7 +201,7 @@ sum(str_detect(as.matrix(valid_2026_1st), regex("no assignment", ignore_case = T
 #valid_2026_1st %>% filter(if_any(everything(), ~ str_detect(as.character(.x), regex("ass", ignore_case = TRUE))))
 
 
-sum(!valid_2026_1st$location_id %in% valid_2024_final$location_id)  # 11 which couldn't be assigned in the 2024 final round
+sum(!valid_2026_1st$location_id %in% valid_2024_final$location_id)  # 11 which couldn't be assigned in the 2024 final round  (out of the 24)
 sum(!valid_2026_1st$location_id %in% valid_2024_1st$location_id)  # 0
 
 
@@ -278,6 +283,48 @@ valid_all <- valid_2024_1st %>%
 
 valid_all %>% head()
 valid_all %>% nrow()  # 21752
+
+
+## Adding general info
+
+Reference_data_2026_strata <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Reference_data_2026_strata.xlsx", 
+                                                 n_max = 15, sheet = "Main") 
+head(Reference_data_2026_strata)
+
+ref_2024 <- Reference_data_2026_strata %>% 
+  slice(1:14) %>% 
+  select(ID...1, ID2, `Region / Countries...3`) %>% 
+  rename("ID" = "ID...1",
+         "Region" = `Region / Countries...3`)
+
+
+valid_all %>% pull(X2024_1st_groupid) %>% unique() %>% sort()
+ref_2024$ID2 %>% sort() 
+
+valid_all <- valid_all %>% 
+  left_join(ref_2024, by = c("X2024_1st_groupid" = "ID2")) %>% 
+  relocate("ID", "Region")  
+
+
+
+## Save data set
+write.csv(valid_all, 
+          #paste0(dir_geowiki, "../AllValidations_2024_2026.csv"), 
+          paste0(dir_geowiki, "AllValidations_2024_2026.csv"), 
+          row.names = FALSE)
+
+#valid_all <- read.csv(paste0(dir_geowiki, "AllValidations_2024_2026.csv"))
+
+
+
+## General checks ####
+
+#valid_all <- read.csv(paste0(dir_geowiki, "AllValidations_2024_2026.csv"))
+
+valid_all %>% head()
+valid_all %>% nrow()  # 21752
+
+
 apply(valid_all, 2, function(x) sum(is.na(x)))
 
 # I need to fix 85 missing coordinates from 2024_1st
@@ -290,18 +337,40 @@ apply(valid_all, 2, function(x) sum(!is.na(x)))
 valid_all %>% 
   select(contains("sample_id")) %>% #head()
   apply(., 2, function(x) sum(!is.na(x)))
- 
+
 # X2024_1st_sample_id     X2024_2nd_sample_id   X2024_final_sample_id     X2026_1st_sample_id     X2026_TieCall_sample_id 
 #       21752                    4000                   21728                   13764                    3975 
 
 
 
+valid_all %>% 
+  select(contains("sample_id")) %>% #head()
+  apply(., 2, function(x) sum(is.na(x)))
 
-## Save data set
-write.csv(valid_all, 
-          #paste0(dir_geowiki, "../AllValidations_2024_2026.csv"), 
-          paste0(dir_geowiki, "AllValidations_2024_2026.csv"), 
-          row.names = FALSE)
+#   X2024_1st_sample_id     X2024_2nd_sample_id   X2024_final_sample_id     X2026_1st_sample_id    X2026_TieCall_sample_id 
+#               0                   17752                      24                    7988                   17777 
+
+# I need to check the 24. From the report:
+# No assignment could be made in step 4 for 24 sample units due to ambiguity in the response data
+# (lack of images, cloud cover, low quality, low resolution, or outdated response data). This total is
+# composed of 3 sample units with no assignment in the first interpretation, 3 sample units with no
+# assignment in the second interpretation and 18 sample units with no assignment by an experienced
+# expert making a decision in step 4.
+
+
+
+valid_all %>% 
+  select(contains("group")) %>% #head()
+  apply(., 2, function(x) sum(is.na(x)))
+  
+  purrr::iwalk(~{
+    cat("\n", .y, "\n", sep = "")
+    print(unique(.x))
+    print(length(unique(.x)))
+    print(sum(is.na(.x)))
+  })
+
+
 
 
 

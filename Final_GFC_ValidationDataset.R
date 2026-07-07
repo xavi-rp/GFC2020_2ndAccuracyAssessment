@@ -1,10 +1,10 @@
-
 #-------------------------------------------------------------#
 #-------------------------------------------------------------#
 #------------    Script to produce the final    --------------#
 #------------   GFC validation dataset (2026)   --------------#
 #-------------------------------------------------------------#
 #-------------------------------------------------------------#
+
 
 
 
@@ -226,9 +226,12 @@ head(crit3)
 ## Some rules (criteria) need to be established
 
 
-## Case 1: 2024-Final and 2026-1st agree on For/Non-For, but TieCall disagrees     # 81 that the Tie Call has changed For/NonFor:    ¡¡¡ check if territorial bias !!!
-## For     For      Non-For   -->  8  Differences in Natural vs planted                                           ¡¡¡ check the images and make a "block" decision if we go for 2024-1st always 
-## NonFor  NonFor   For       --> 73  Differences in 6 subclasses (no trees/shrubs, etc)                              or for Tie Call always !!!
+## Case 1: 2024-Final and 2026-1st agree on For/Non-For, but TieCall disagrees     # 81 that the Tie Call has changed For/NonFor:    
+#                                                                                    ¡¡¡ check if territorial bias !!!
+## For     For      Non-For   -->  8  Differences in Natural vs planted            # ¡¡¡ check the images and make a "block" decision if we go for 
+#                                                                                    2024-1st always or for Tie Call always !!!
+#
+## NonFor  NonFor   For       --> 73  Differences in 6 subclasses (no trees/shrubs, etc)                              
 ##
 ## TieCall is not used to determine the parent class (For/NonFor) because it exists only 
 ## to arbitrate disagreements between the first two interpretations.
@@ -239,6 +242,9 @@ head(crit3)
 ## Unless 2024-Final has issues like "no response data", "low resolution" or "cloud cover"; in that case 2026-1st 
 ## should be preferred (or at least flag it for potential manual review). If both interpretations are affected 
 ## by these issues, the sample should be flagged for manual review.
+
+## Besides what's explained before, for these 81 samples the Tie Call is used over the 2026-Final. See the reasons and the analysis 
+## below (section 'TieCall vs 2024-Final as the Final 2026 assignment').
 
 
 valid_all %>% 
@@ -260,7 +266,7 @@ case1_manualRevision <- valid_all %>%
   filter_out(location_id %in% crit3$location_id) %>% #nrow()
   filter(X2024_final_forest_class == X2026_1st_forest_class &
            X2024_final_forest_class != X2026_TieCall_forest_class) %>% 
-  filter(X2024_final_class_issues %in% c("no response data", "low resolution", "cloud cover")) 
+  filter(X2024_final_class_issues %in% c("no response data", "low resolution", "cloud cover")) #%>% pull(location_id)
 
 case1_manualRevision %>%  #nrow()
   pull(X2026_1st_class_issues) %>% 
@@ -279,8 +285,25 @@ case1_manualRevision %>%
          "X2024_final_forest_class", "X2024_final_confidence_level", "X2024_final_type_class", "X2024_final_class_issues", "X2024_final_comment",
          "X2026_1st_forest_class", "X2026_1st_confidence_level", "X2026_1st_type_class", "X2026_1st_class_issues", "X2026_1st_comment") #%>% View()
 
+
+## These 4 samples (1998836, 1998850, 2129175, 2129720) have been double checked and the Tie Call can be accepted
 #
 
+
+crit41 <- valid_all %>% 
+  filter_out(location_id %in% crit1$location_id) %>%
+  filter_out(location_id %in% crit2$location_id) %>%
+  filter_out(location_id %in% crit3$location_id) %>% #nrow()
+  filter(X2024_final_forest_class == X2026_1st_forest_class &
+           X2024_final_forest_class != X2026_TieCall_forest_class) %>% #nrow()   # 81
+  select("ID", "Region", "location_id",
+         "X2024_1st_sample_id",   # this is the reference for most of the spatial layers
+         "X2026_TieCall_groupid",   # this allows to know from which call they come
+         "X2026_TieCall_forest_class", "X2026_TieCall_confidence_level", "X2026_TieCall_type_class", "X2026_TieCall_class_issues", "X2026_TieCall_comment") %>% 
+  rename_with( ~ str_remove(.x, "^X2026_TieCall_")) #%>% tail()
+
+
+#rbind(crit3, crit41) %>% head()
 
 
 
@@ -299,9 +322,9 @@ case1_manualRevision %>%
 351 + 9 + 61 + 16 + 56 
 9 + 61 + 16 + 56   # 142
 
-## * Same as Case1: use 2024-Final as it has additional weight
+## * Same as Case1: use (2024-Final as it has additional weight --> No!) Tie Call as explained in the analysis of the 81 samples
 ##
-## ** The TieCall is used determine the final For/NonFor class, and its corresponding subclass is also retained. Rationale:
+## ** The TieCall is used to determine the final For/NonFor class, and its corresponding subclass is also retained. Rationale:
 ## The TieCall was initiated specifically because the original interpretations disagreed, and its purpose is to provide an 
 ## independent adjudication. Once accepted its class decision (For/NonFor), although 2024-Final has additional weight, it is reasonable
 ## (and methodologically consistent) to accept TieCall subclass as well, since its interpreter may have considered the previous 
@@ -323,34 +346,68 @@ case2_manualRevision %>%
   pull(X2024_final_class_issues) %>% 
   table() %>% {.[names(.) %in% c("no response data", "low resolution", "cloud cover")]}
 
-
 #   low resolution    no response data 
 #        1                   8 
 
 
-case2_manualRevision <- case2_manualRevision %>%  
-  filter(X2024_final_class_issues %in% c("no response data", "low resolution", "cloud cover")) #%>%  #nrow()
+#case2_manualRevision <- case2_manualRevision %>%  
+#  filter(X2024_final_class_issues %in% c("no response data", "low resolution", "cloud cover")) #%>%  #nrow()  # 9
 
 case2_manualRevision %>% 
-  pull(X2026_1st_class_issues) %>% 
+  pull(X2026_TieCall_class_issues) %>% 
   table() %>% {.[names(.) %in% c("no response data", "low resolution", "cloud cover")]}
 
 #   low resolution    no response data 
-#          1                1                 # 2 flagged for manual revision
+#          1                7                 # 8 flagged for manual revision
 
-case2_manualRevision %>% 
-  filter(X2026_1st_class_issues %in% c("no response data", "low resolution", "cloud cover")) %>% 
+
+case2_manualRevision <- case2_manualRevision %>% 
+  filter(X2026_TieCall_class_issues %in% c("no response data", "low resolution", "cloud cover")) %>% 
   select("ID", "Region", "location_id",
          "X2024_1st_sample_id",   # this is the reference for most of the spatial layers
          "X2026_1st_groupid",   # this allows to know from which call they come
          "X2024_final_forest_class", "X2024_final_confidence_level", "X2024_final_type_class", "X2024_final_class_issues", "X2024_final_comment",
-         "X2026_1st_forest_class", "X2026_1st_confidence_level", "X2026_1st_type_class", "X2026_1st_class_issues", "X2026_1st_comment") #%>% View()
+         "X2026_1st_forest_class", "X2026_1st_confidence_level", "X2026_1st_type_class", "X2026_1st_class_issues", "X2026_1st_comment",#) %>% View()
+         "X2026_TieCall_forest_class", "X2026_TieCall_confidence_level", "X2026_TieCall_type_class", "X2026_TieCall_class_issues", "X2026_TieCall_comment") #%>% #View()
+
+case2_manualRevision %>% 
+  pull(X2024_1st_sample_id) # 1951259 1952512 1953990 1955331 1961663 1965494 1968697 1972001
+
+case2_manualRevision %>% filter(X2024_1st_sample_id == 1972001) #%>% View()
+## see: paste0(dir_geowiki, "kml_case2_manualRevision.kml")
+
+# 1951259 --> 2026-TieCall 
+# 1952512 --> 2026-TieCall 
+# 1953990 --> 2026-TieCall 
+# 1955331 --> 2026-TieCall 
+# 1961663 --> 2026-TieCall 
+# 1965494 --> 2026-TieCall 
+# 1968697 --> 2026-TieCall 
+# 1972001 --> 2026-TieCall 
+
+## As a block decission we can accept 2026-TieCall for all of them
 
 
 
-#
+crit42 <- valid_all %>% 
+  filter_out(location_id %in% crit1$location_id) %>%
+  filter_out(location_id %in% crit2$location_id) %>%
+  filter_out(location_id %in% crit3$location_id) %>% #nrow()
+  filter_out(location_id %in% crit41$location_id) %>% #nrow()
+  filter_out(is.na(X2024_final_forest_class)) %>% #nrow()    # 493
+  select("ID", "Region", "location_id",
+         "X2024_1st_sample_id",   # this is the reference for most of the spatial layers
+         "X2026_TieCall_groupid",   # this allows to know from which call they come
+         "X2026_TieCall_forest_class", "X2026_TieCall_confidence_level", "X2026_TieCall_type_class", "X2026_TieCall_class_issues", "X2026_TieCall_comment") %>% 
+  rename_with( ~ str_remove(.x, "^X2026_TieCall_")) #%>% tail()
 
-#     ¡¡¡ check all the 24 images and see if the new 2026 validations make sense or are too optimistic !!!
+#rbind(crit3, crit42) %>% head()
+rbind(crit1, crit2, crit3, crit41, crit42) %>% nrow()
+rbind(crit1, crit2, crit3, crit41, crit42) %>% filter(is.na(forest_class)) %>% nrow()  # 13 NAs (not assessed in 2026)
+
+
+
+
 
 ## case 3: 2024-Final has NA (missing information), and 2026-1st and TieCall disagree on For/Non-For   # 2 samples
 ## These should be flagged for potential manual review
@@ -359,8 +416,62 @@ case2_manualRevision %>%
 ## case 4: 2024-Final has NA (missing information), and 2026-1st and TieCall disagree on Type Class    # 1 sample
 ## These should be flagged for potential manual review
 
+names(valid_all)
+
+case34_manualRevision <- valid_all %>% 
+  filter(is.na(X2024_final_forest_class)) %>% #nrow()   # 24
+  select("ID", "Region", "location_id",
+         "X2024_1st_sample_id",   # this is the reference for most of the spatial layers
+         "X2026_1st_groupid",   # this allows to know from which call they come
+         "X2024_final_forest_class", "X2024_final_confidence_level", "X2024_final_type_class", "X2024_final_class_issues", "X2024_final_comment",
+         "X2026_1st_forest_class", "X2026_1st_confidence_level", "X2026_1st_type_class", "X2026_1st_class_issues", "X2026_1st_comment",#) %>% View()
+         "X2026_TieCall_forest_class", "X2026_TieCall_confidence_level", "X2026_TieCall_type_class", "X2026_TieCall_class_issues", "X2026_TieCall_comment") 
+
+case34_manualRevision %>% filter(is.na(X2026_TieCall_forest_class))  %>% nrow()  # 13 that are not assessed in 2026
+case34_manualRevision %>% filter(!is.na(X2026_TieCall_forest_class))  %>% nrow()  # 11 that are assessed in 2026
+## manually check all 11 images and see if the new 2026 validations make sense or are too optimistic 
+
+
+case34_manualRevision <- case34_manualRevision %>% 
+  filter(!is.na(X2026_TieCall_forest_class))
+
+case34_manualRevision %>% 
+  pull(X2024_1st_sample_id) # 1965114 1965261 1965282 1965291 1968492 1969105 1969305 1969644 1969795 1969918 1970263
+
+
+case34_manualRevision %>% filter(X2024_1st_sample_id == 1970263) #%>% View()
+
+# 1965114 --> 2026-TieCall 
+# 1965261 --> 2026-TieCall 
+# 1965282 --> 2026-TieCall 
+# 1965291 --> 2026-TieCall 
+# 1968492 --> 2026-TieCall 
+# 1969105 --> 2026-TieCall 
+# 1969305 --> 2026-TieCall 
+# 1969644 --> 2026-TieCall 
+# 1969795 --> 2026-TieCall 
+# 1969918 --> 2026-TieCall 
+# 1970263 --> 2026-TieCall 
+
 
 81 + 493 + 2 + 1  # 577
+
+
+
+crit434 <- valid_all %>% 
+  filter_out(location_id %in% crit1$location_id) %>%
+  filter_out(location_id %in% crit2$location_id) %>%
+  filter_out(location_id %in% crit3$location_id) %>% #nrow()
+  filter_out(location_id %in% crit41$location_id) %>% #nrow()
+  filter_out(location_id %in% crit42$location_id) %>% #nrow()  # 3
+  select("ID", "Region", "location_id",
+         "X2024_1st_sample_id",   # this is the reference for most of the spatial layers
+         "X2026_TieCall_groupid",   # this allows to know from which call they come
+         "X2026_TieCall_forest_class", "X2026_TieCall_confidence_level", "X2026_TieCall_type_class", "X2026_TieCall_class_issues", "X2026_TieCall_comment") %>% 
+  rename_with( ~ str_remove(.x, "^X2026_TieCall_")) #%>% tail()
+
+rbind(crit1, crit2, crit3, crit41, crit42, crit434) %>% nrow()
+rbind(crit1, crit2, crit3, crit41, crit42, crit434) %>% filter(is.na(forest_class)) %>% nrow()  # 13 NAs (not assessed in 2026)
 
 
 
@@ -377,21 +488,10 @@ case2_manualRevision %>%
 ##    - If the parent class comes from the TieCall, the TieCall also determines the subclass.
 ##    - The only exceptions are when the deciding interpretation is based on inadequate imagery ("no response data", 
 ##      "low resolution", or "cloud cover"), in which case the sample should either revert to the best available alternative
-##      or be flagged for manual review.
+##      or be flagged for manual review. No cases.
  
 
 #
-
-
-
-
-
-
-
-
-
-
-
 
 
 ### Merging all criteria ####
@@ -401,14 +501,211 @@ rbind(crit1, crit2, crit3) %>% nrow()   # 21175
 21175 + 577  # 21752
 
 
-crit_all <- rbind(crit1, crit2, crit3) 
+crit_all <- rbind(crit1, crit2, crit3, crit41, crit42, crit434)
 
-crit_all %>% filter(location_id == 1998834)
+nrow(crit_all)                         # 21752
+length(unique(crit_all$location_id))   # 21752
+
+crit_all %>% filter(is.na(forest_class)) %>% nrow()  # 13 NAs (not assessed in 2026)
+
+
+
+
+
+## Add strata/no strata information ####
+
+names(crit_all)
+
+interpretation_combined_strata_GEZ_FAO <- read.csv(paste0("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/final_v1/",
+                                                          "interpretation_combined_strata_GEZ-FAO.csv"))
+
+nrow(interpretation_combined_strata_GEZ_FAO)   # 21752
+names(interpretation_combined_strata_GEZ_FAO)
+
+interpretation_combined_strata_GEZ_FAO %>% 
+  select("code_cglops", "CGLOPS_class", "combined", "continent", "strata", "GEZ_CODE") %>% 
+  #summarise(across(everything(), ~ list(sort(unique(.x)))))
+  #summarise(across(everything(), ~ sum(is.na(.x))))             # 'strata' has 62 NAs --> this is the one
+  #pull(GEZ_CODE) %>% #unique() %>% sort()
+  #pull(CGLOPS_class) %>% #unique() %>% sort()
+  pull(strata) %>% #unique() %>% sort()
+  #is.na() %>% sum()
+  table() #%>%  sum() #+ 62
+
+
+strata_all <- interpretation_combined_strata_GEZ_FAO %>% 
+  select(location_id, strata)
+
+head(strata_all)  # e.g. 1002, etc
+apply(strata_all, 2, function(x) sum(is.na(x)))
+
+
+crit_all <- crit_all %>% 
+  left_join(strata_all, by = "location_id") #%>% head()
+
+sum(is.na(crit_all$strata))   # 62, correct!
+table(crit_all$strata)        # e.g. 1001, etc.
+table(crit_all$strata) %>% length()  # 149 strata, correct!
+
+
+
+
+## Add GAUL information ####
+## "A set of 54 sample units were located outside the FAO Global Assessment Unit Layer (GAUL; FAO 2015), 
+## which was used as map boundary for area statistics"
+## I can't find a table combining the 21752 samples and the GAUL for all.
+## Instead, I'll use 21612
+
+combined_scenario_all_GFCV2 <- read.csv(paste0("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/to_share/", 
+                                               "combined_scenario_all_GFCV2.csv"))
+nrow(combined_scenario_all_GFCV2)  # 21752
+names(combined_scenario_all_GFCV2)  
+
+sort(unique(combined_scenario_all_GFCV2$gaul))  # 0, 1
+table(combined_scenario_all_GFCV2$gaul)
+#     0      1 
+#    59  21693              # according to the report, 54 samples are not used because of lack of GAUL
+
+table(combined_scenario_all_GFCV2$GFC_v2)
+#       0       1 
+#    14386   7366 
+
+
+table(combined_scenario_all_GFCV2$strata)    # the 62 have the value strata = 0
+
+
+combined_scenario_all_GFCV2 %>% 
+  filter(strata == 0) %>% #nrow()
+  pull(gaul) %>% table()
+
+# 0   1   
+# 5  57      # 5 samples with no strata have also no gaul; therefore, if hierarchically removed for the 1st assessment,
+             # 64 samples removed because of no strata, and 54 additional which have no gaul.
+             # However, I still don't have the gaul value for those 11 (or 13) which in 2026 have assignment, and thus 
+             # could enter in the new analyses (for a robust comparision with 1st assessment, these ones may still be removed)
+
+
+
+strata_gaul_all <- combined_scenario_all_GFCV2 %>% 
+  select("sample_id", "strata", "gaul")
+
+head(strata_gaul_all)
+nrow(strata_gaul_all)   # 21752
+
+apply(strata_gaul_all, 2, function(x) sum(is.na(x)))
+# sample_id    strata      gaul 
+#        0         0         0 
+
+sort(unique(strata_gaul_all$gaul))
+table(strata_gaul_all$gaul)    # 59 with no gaul
+table(strata_gaul_all$strata)  # 62 with strata = 0, therefore with no strata
+
+
+gaul_all <- strata_gaul_all %>% 
+  select(sample_id, gaul) #%>%  head()
+
+
+sum(gaul_all$sample_id %in% crit_all$X2024_1st_sample_id)  # 21752
+
+
+crit_all <- crit_all %>% 
+  left_join(gaul_all, by = c("X2024_1st_sample_id" = "sample_id")) %>% #head()
+  mutate(gaul = case_when(gaul == 1 ~ "yes", gaul == 0 ~ "no", TRUE ~ as.character(gaul))) 
+
+#%>% pull(gaul) %>% table() %>% sum()      # 21752, no NAs
+
+head(crit_all)
+
+
+
+## Add used in 1st assessment, and gaul value (continent)  ####
+## Including a column showing if the sample was finally used in the assessment, or not ####
+dir_1stAssessment <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/final_v2/"
+data_1stAssessment <- readxl::read_excel(paste0(dir_1stAssessment, "GFC_v2_accuracy-assessment_gaul.xlsx"), 
+                                         sheet = "5_combined")
+nrow(data_1stAssessment)  # 21612. Correct, the ones finally used
+names(data_1stAssessment)    # "strata_gaul"        "gaul_opt1"          "continent_gaul"    
+
+sort(unique(data_1stAssessment$continent))       # this has 8 continents (names)
+sort(unique(data_1stAssessment$continent_gaul))  # this is a code 1:8
+sum(is.na(data_1stAssessment$continent))         # 0
+sum(is.na(data_1stAssessment$continent_gaul))    # 0
+
+sort(unique(data_1stAssessment$gaul_opt1))  # this is a code 0:7
+sum(is.na(data_1stAssessment$gaul_opt1))    # 0
+
+sort(unique(data_1stAssessment$strata_gaul))  # e.g 1001, etc
+sum(is.na(data_1stAssessment$strata_gaul))    # 0
+
+
+
+data_1stAssessment %>% 
+  select(continent, continent_gaul) %>% 
+  #unique()
+  table()
+
+## continent and continent_gaul do not correspond each other
+## I'll add 'continent_gaul' to the dataset
+
+
+
+data_1stAssessment %>% 
+  select(location_id, continent_gaul) %>% #head()
+  pull(continent_gaul) %>%    
+  table()  %>%  sum()  # 21612 ;  continent_gaul = 8 seems to be Antarctica (4 samples)
+
+
+continent_gaul <- data_1stAssessment %>% 
+  select(location_id, continent_gaul)
+
+
+crit_all <- crit_all %>% 
+  left_join(continent_gaul, by = "location_id") #%>%  nrow()  # 21752
+  
+head(crit_all)
+
+
+
+
+## Adding UsedIn_1stAssessment
+length(data_1stAssessment$location_id)  # 21612
+
+
+crit_all <- crit_all %>%
+  mutate(
+    UsedIn_1stAssessment = if_else(
+      location_id %in% data_1stAssessment$location_id,
+      "yes",
+      "no"
+    )
+  ) 
+
+head(crit_all)
+
+crit_all %>% pull(UsedIn_1stAssessment) %>% 
+  table()
+#   no    yes 
+#  140  21612 
+
+# used + no strata + no GAUL +  impossible assignation
+ 21612 +      62   +    54   +      24               # 21752
+ 
+ 
+sum(crit_all$gaul == "no")  # 59; remember that 5 of these are discarded because of no strata
+
+sum(is.na(crit_all$strata))  # 62 NAs --> no strata
+
+sum(crit_all$UsedIn_1stAssessment == "yes")  # 21612
+
+head(crit_all)
 nrow(crit_all)
-length(unique(crit_all$location_id))
-#
 
 
+## Saving final 2026 validation dataset ####
+
+write.csv(crit_all, 
+          paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"), 
+          row.names = FALSE)
 
 
 
@@ -1162,6 +1459,8 @@ dir_kml_orig <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/"
 IDs <- sort(unique(TieCall_review$ID))
 
 target_ids <- TieCall_review$X2024_1st_sample_id
+#target_ids <- case2_manualRevision$X2024_1st_sample_id
+#target_ids <- case34_manualRevision$X2024_1st_sample_id
 
 kml_list <- list()
 
@@ -1185,6 +1484,8 @@ kml_validation_XRP <- bind_rows(kml_list)
 nrow(kml_validation_XRP)   # 81
 
 st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_validation_XRP.kml"), delete_dsn = TRUE, quiet = TRUE)
+#st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_case2_manualRevision.kml"), delete_dsn = TRUE, quiet = TRUE)
+#st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_case34_manualRevision.kml"), delete_dsn = TRUE, quiet = TRUE)
 
 
 
@@ -1427,8 +1728,4 @@ mcnemar.test(tab)
 
 
 
-
-
-
-## Add GAUL information ####
 

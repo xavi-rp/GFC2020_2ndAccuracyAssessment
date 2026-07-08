@@ -7,7 +7,6 @@
 #-------------------------------------------------------------#
 
 
-
 library(tidyverse)
 
 
@@ -72,6 +71,27 @@ apply(valid_2024_1st, 2, function(x) sum(is.na(x)))
 #unique(valid_2024_1st$X2024_1st_comment)
 
 #valid_2024_1st %>% filter(is.na(X2024_1st_pixel_center_x)) %>% View()
+
+
+## Adding 85 missing coordinates
+
+missing_pixel_centre_SSU <- read.csv(paste0("/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/",
+                                            "20240924_missing_pixel_centre_SSU.csv"))
+
+nrow(missing_pixel_centre_SSU)  # 85
+names(missing_pixel_centre_SSU)
+
+names(valid_2024_1st)
+sum(missing_pixel_centre_SSU$sample_id %in% valid_2024_1st$X2024_1st_sample_id)
+
+
+valid_2024_1st <- valid_2024_1st %>%
+  left_join(missing_pixel_centre_SSU %>% select(sample_id, pixel_center_x, pixel_center_y),
+            by = c("X2024_1st_sample_id" = "sample_id")) %>%
+  mutate(X2024_1st_pixel_center_x = coalesce(X2024_1st_pixel_center_x, pixel_center_x),
+         X2024_1st_pixel_center_y = coalesce(X2024_1st_pixel_center_y, pixel_center_y)) %>%
+  select(-pixel_center_x, -pixel_center_y) #%>% head()
+
 
 
 
@@ -307,6 +327,21 @@ valid_all <- valid_all %>%
 
 
 
+## Adding column showing if the sample was finally used in the assessment, or not
+dir_1stAssessment <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/final_v2/"
+data_1stAssessment <- readxl::read_excel(paste0(dir_1stAssessment, "GFC_v2_accuracy-assessment_gaul.xlsx"), 
+                                 sheet = "5_combined")
+nrow(data_1stAssessment)  # 21612. Correct, the ones finally used
+
+valid_all <- valid_all %>%
+  mutate(UsedIn_1stAssessment = if_else(location_id %in% data_1stAssessment$location_id, "Yes", "No")) #%>% head()
+
+head(valid_all)
+sum(valid_all$UsedIn_1stAssessment == "Yes") # +
+sum(valid_all$UsedIn_1stAssessment == "No")
+
+
+
 ## Save data set
 write.csv(valid_all, 
           #paste0(dir_geowiki, "../AllValidations_2024_2026.csv"), 
@@ -350,7 +385,7 @@ valid_all %>%
 #   X2024_1st_sample_id     X2024_2nd_sample_id   X2024_final_sample_id     X2026_1st_sample_id    X2026_TieCall_sample_id 
 #               0                   17752                      24                    7988                   17777 
 
-# I need to check the 24. From the report:
+# About the 24 samples. From the report:
 # No assignment could be made in step 4 for 24 sample units due to ambiguity in the response data
 # (lack of images, cloud cover, low quality, low resolution, or outdated response data). This total is
 # composed of 3 sample units with no assignment in the first interpretation, 3 sample units with no

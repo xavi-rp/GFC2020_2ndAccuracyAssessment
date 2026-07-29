@@ -581,6 +581,7 @@ forest_ci95  # 83
 ## In the repor
 
 
+
 ### Calculate total forest area (not adjusted) ####
 #library(rgee)
 #ee_install_upgrade()
@@ -600,368 +601,80 @@ ee$Initialize()
 
 ## GEE is initialised, now we can run the calculations
 
-gaul <- ee$FeatureCollection("FAO/GAUL/2015/level0")
-
-
-
-ee$data$getAsset("JRC/GFC2020/V2")   # image collection
-
-gfc <- ee$ImageCollection("JRC/GFC2020/V2")
-gfc_img <- gfc$first()
-
-gfc$size()$getInfo()  # 1420 images (very likely one image per tile)
-gfc_img$bandNames()$getInfo()  # Each image has a single band called "Map". THerefore, first() would give us only the first tile
-
-gfc <- ee$ImageCollection("JRC/GFC2020/V2")$
-  select("Map")$
-  mosaic()
-
-gfc$bandNames()$getInfo()   # "Map"
-
-
-# Native pixel size
-scale <- gfc$
-  projection()$
-  nominalScale()$
-  getInfo()
-
-scale  # 111319.5  111319.5 m is not the native resolution of the data. It's approximately 1 degree at the equator (111,319.5 m).
-
-gfc_ic <- ee$ImageCollection("JRC/GFC2020/V2")
-
-tile <- ee$Image(gfc_ic$first())
-
-tile$projection()$getInfo()
-
-scale <- tile$projection()$
-  nominalScale()$
-  getInfo()
-
-scale  # now, scale is 10 m
-
-gfc_ic$first()$getInfo()
-
-gfc_ic$
-  aggregate_array("system:index")$
-  getInfo()[1:20]
+#gaul <- ee$FeatureCollection("FAO/GAUL/2015/level0")
+#ee$data$getAsset("JRC/GFC2020/V2")   # image collection
+#gfc <- ee$ImageCollection("JRC/GFC2020/V2")
+#gfc$size()$getInfo()  # 1420 images (very likely one image per tile)
+#gfc_img$bandNames()$getInfo()  # Each image has a single band called "Map". THerefore, first() would give us only the first tile
 
 # The collection is organized as:
 # Geographic tiles (N0_E0, N0_E10, N0_E100, ...)
 # Each geographic tile is further split into four internal chunks (0000000000-0000000000, etc.)
-# The tiles are non-overlapping, so mosaic() is exactly the right operation.
-
-
-# create again the mosaic, in a clean way:
-gfc_ic <- ee$ImageCollection("JRC/GFC2020/V2")$
-  select("Map")
-
-# first tile to retrieve the native projection
-tile <- ee$Image(gfc_ic$first())
-
-proj <- tile$projection()
-
-scale <- proj$nominalScale()$getInfo()
-scale # 10m
-
-# Building the global image and forcing the native projection
-gfc <- gfc_ic$
-  mosaic()$
-  setDefaultProjection(proj)
-
-gfc$
-  projection()$
-  nominalScale()$
-  getInfo()  # 10
+# The tiles overlap, so mosaic() removes overlapping
 
 
 ## Forest area
-# avoid using the complex GAUL geometry. Building a global rectangle:
-  
-world <- ee$Geometry$Rectangle(
-  coords = c(-180, -90, 180, 90),
-  geodesic = FALSE)
-
-
-forest_area <- ee$Image$pixelArea()$
-  divide(10000)$
-  updateMask(gfc$eq(1))$
-  reduceRegion(
-    reducer = ee$Reducer$sum(),
-    geometry = world,
-    scale = scale,
-    maxPixels = 1e13
-  )$
-  getInfo()  # exceeds the interactive timeout (typically a few minutes) --> error
-
-
-
-## Another approach: compute the area tile by tile and then sum the results.
-
-# img is an ee.Image corresponding to one tile
-
-#tile_forest_area <- function(img, scale = 10) {
-#  
-#  area <- ee$Image$pixelArea()$
-#    divide(10000)$
-#    updateMask(img$select("Map")$eq(1))$
-#    reduceRegion(
-#      reducer = ee$Reducer$sum(),
-#      geometry = img$geometry(),
-#      scale = scale,
-#      maxPixels = 1e13
-#    )$
-#    getInfo()
-#  
-#  return(area$area)
-#}
-#
-#
-#img1 <- ee$Image(gfc_ic$first())
-#area1 <- tile_forest_area(img1) ; print(area1) # 0
-#img1$get("system:index")$getInfo() # tiny island on the Atlantic
-#
-#ids <- gfc_ic$
-#  limit(20)$
-#  aggregate_array("system:index")$
-#  getInfo()
-#print(ids)
-#
-#
-#img <- ee$Image(
-#  gfc_ic$
-#    filter(ee$Filter$stringContains("system:index", "S10_W70"))$
-#    first()
-#)
-#
-#img$
-#  reduceRegion(
-#    reducer = ee$Reducer$frequencyHistogram(),
-#    geometry = img$geometry(),
-#    scale = 10,
-#    maxPixels = 1e13
-#  )$
-#  getInfo()
-#
-#
-#res <- ee$Image$pixelArea()$
-#  divide(10000)$
-#  updateMask(img$select("Map")$eq(1))$
-#  reduceRegion(
-#    reducer = ee$Reducer$sum(),
-#    geometry = img$geometry(),
-#    scale = 10,
-#    maxPixels = 1e13
-#  )$
-#  getInfo()
-#
-#str(res)
-#print(res)
-#
-#res <- img$
-#  select("Map")$
-#  eq(1)$
-#  reduceRegion(
-#    reducer = ee$Reducer$sum(),
-#    geometry = img$geometry(),
-#    scale = 10,
-#    maxPixels = 1e13
-#  )$
-#  getInfo()
-#
-#print(res)
-#
-## Reducer.sum() on a binary integer image is overflowing (sum is negative), while summing pixelArea() works #because it's a floating-point image.
-#
-#img$bandNames()$getInfo()
-#img$projection()$nominalScale()$getInfo()
-
-
-### This works but it's far too slow
-run_this <- "no"
-
-if(run_this != "no"){
-  tile_forest_area <- function(img) {
-    
-    res <- ee$Image$pixelArea()$
-      divide(10000)$
-      updateMask(img$select("Map")$eq(1))$
-      reduceRegion(
-        reducer = ee$Reducer$sum(),
-        geometry = img$geometry(),
-        scale = 10,
-        maxPixels = 1e13
-      )$
-      getInfo()
-    
-    as.numeric(res$area)
-  }
-  
-  
-  # test it on a few tiles:
-  
-  imgs <- gfc_ic$
-    limit(5)$
-    toList(5)
-  
-  areas <- numeric(5)
-  
-  for(i in 0:4){
-    
-    img <- ee$Image(imgs$get(i))
-    
-    idx <- img$get("system:index")$getInfo()
-    
-    cat(i + 1, idx, "\n")
-    
-    areas[i + 1] <- tile_forest_area(img)
-    
-    cat("Area:", round(areas[i + 1]), "ha\n\n")
-  }
-  
-  sum(areas)
-  
-  
-  # scaling up to all (1,420) tiles
-  
-  nTiles <- gfc_ic$size()$getInfo()  
-  
-  imgs <- gfc_ic$toList(nTiles)
-  
-  areas <- numeric(nTiles)
-  
-  for(i in 0:(nTiles - 1)) {
-    
-    img <- ee$Image(imgs$get(i))
-    
-    idx <- img$get("system:index")$getInfo()
-    
-    cat(i + 1, idx, "\n")
-    
-    areas[i + 1] <- tile_forest_area(img)
-    
-    cat("Area:", round(areas[i + 1]), "ha\n\n")
-  }
-  
-  
-  forest_area <- sum(areas)
-  forest_area
-  
-}
-
-##
-
-gfc_ic$first()$getInfo()
-gfc_ic$first()$getInfo()
-gfc_ic$first()$propertyNames()$getInfo()
-
-
-## Next approach: using 'reticulate' to send the work to GEE  --> It times out!!
-
-#py_run_string("
-#import ee
-#
-## Load the image collection
-#gfc = ee.ImageCollection('JRC/GFC2020/V2').select('Map')
-#
-## Function to compute forest area (ha) for each tile
-#def add_area(img):
-#
-#    forest_area = (
-#        ee.Image.pixelArea()
-#          .toDouble()
-#          .divide(10000)                 # m² -> hectares
-#          .updateMask(img.eq(1))
-#          .reduceRegion(
-#              reducer = ee.Reducer.sum(),
-#              geometry = img.geometry(),
-#              scale = 10,
-#              maxPixels = 1e13
-#          )
-#          .get('area')
-#    )
-#
-#    return img.set('forest_area_ha', forest_area)
-#
-## Compute the area for every tile
-#areas = gfc.map(add_area)
-#
-## Sum all tile areas (still server-side)
-#total_forest_area = areas.aggregate_sum('forest_area_ha')
-#")
-#
-## Retrieve the final result (hectares)
-#total_ha <- py$total_forest_area$getInfo()
-#
-#cat(sprintf(
-#  "Global mapped forest area: %.0f ha (%.2f million ha)\n",
-#  total_ha,
-#  total_ha / 1e6
-#))
-
-
-# Next approach: batch processing, not interactive requests. Clipping each tile by GAUL
-#The idea is:
-#1)Compute the forest area for each tile.
-#2)Store it as a property of a Feature.
-#3)Export the resulting FeatureCollection as a CSV to Google Drive.
-#4)Sum the forest_area_ha column in R.
+## Clement's GEE script: https://code.earthengine.google.com/7cfb76f43e06c22856311f81662552da
 
 py_run_string("
 import ee
 
 # ---------------------------------------------------------------------
-# Load datasets
+# GFC v2
 # ---------------------------------------------------------------------
 
-gfc = ee.ImageCollection('JRC/GFC2020/V2').select('Map')
+# Mosaic the collection into a single image (remove overlapping)
+GFCv2 = ee.ImageCollection('JRC/GFC2020/V2').mosaic()
 
-gaul = ee.FeatureCollection('FAO/GAUL/2015/level0')
-
-# Dissolve all countries into a single geometry
-gaul_geometry = gaul.geometry()
+# Spatial zones to iterate over
+Zones = ee.FeatureCollection(
+    'projects/ee-astridverhegghen/assets/EUFO/continents/gaul2015_GFC_1deg-final'
+)
 
 # ---------------------------------------------------------------------
-# Compute forest area for each tile
+# Forest layer
 # ---------------------------------------------------------------------
 
-def image_to_feature(img):
+# Keep only value 1 (forest), rename the band.
+# ee.Image.cat() is kept for fidelity with the original script.
+AllClasses = ee.Image.cat(
+    GFCv2.eq(1).rename('Forest_v2')
+)
 
-    # Restrict the image to the GAUL land area
-    img = img.clip(gaul_geometry)
+# ---------------------------------------------------------------------
+# Function applied to every feature
+# ---------------------------------------------------------------------
 
-    forest_area = (
-        ee.Image.pixelArea()
-          .toDouble()
-          .divide(10000)
-          .updateMask(img.eq(1))
-          .reduceRegion(
-              reducer = ee.Reducer.sum(),
-              geometry = img.geometry(),
-              scale = 10,
-              maxPixels = 1e13
-          )
-          .get('area')
+def LOOPsamples(feature):
+
+    vals = (
+        AllClasses
+        .multiply(ee.Image.pixelArea())
+        .reduceRegion(
+            reducer = ee.Reducer.sum(),
+            geometry = feature.geometry(),
+            scale = 10,
+            maxPixels = 1e13
+        )
     )
 
-    return ee.Feature(
-        None,
-        {
-            'tile': img.get('system:index'),
-            'forest_area_ha': forest_area
-        }
+    return (
+        ee.Feature(None, vals)
+        .copyProperties(feature, feature.propertyNames())
     )
 
-fc = ee.FeatureCollection(gfc.map(image_to_feature))
+# Apply the function to every feature
+LOOPresult2 = Zones.map(LOOPsamples)
 
 # ---------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------
 
 task = ee.batch.Export.table.toDrive(
-    collection = fc,
-    description = 'GFC2020_V2_forest_area_GAUL',
+    collection = LOOPresult2,
+    description = 'JRC_GFC_v2_gaul2015_GFC_1deg-final',
     folder = 'EarthEngine',
-    fileNamePrefix = 'GFC2020_V2_forest_area_GAUL',
+    fileNamePrefix = 'JRC_GFC_v2_gaul2015_GFC_1deg-final',
     fileFormat = 'CSV'
 )
 
@@ -970,186 +683,11 @@ task.start()
 print('Task submitted.')
 ")
 
-# After submitting the python process to GEE:
-# 1) Open the Earth Engine Code Editor.
-# 2) Go to the Tasks tab (or check the task in the Cloud project if you're using the Python API).
-# 3) You should see GFC2020_forest_area_by_tile.
-# 4) Click Run if necessary (depending on how your project is configured) and wait for it to finish. 
-# 5) Check export in the GDrive.
-
-
-#install.packages("googledrive")
-library(googledrive)
-#drive_auth()    # only for the first access, then credentials should be stored
-
-drive_ls()
-drive_ls("EarthEngine")
-file <- drive_find("GFC2020_forest_area_by_tile.csv")
-drive_download(
-  file,
-  path = paste0(dir_2ndAssessment, "GFC2020_forest_area_by_tile.csv"),
-  overwrite = TRUE
-)
-
-areas <- read.csv(paste0(dir_2ndAssessment, "GFC2020_forest_area_by_tile.csv"))
-head(areas)
-sum(is.na(areas$forest_area_ha))
-
-
-mapped_area <- round(sum(areas$forest_area_ha)/10^6, 0)
-mapped_area  # this is not exactly the number reported in the first assessment.   4596 (here) vs 4562 (report) --> 
-
-
-## The discrepancies may be due to overlap of the tiles. Let's test that:
-
-py_run_string("
-import ee
-
-gfc = ee.ImageCollection('JRC/GFC2020/V2')
-
-tile1 = ee.Image(
-    gfc.filter(ee.Filter.eq('system:index', 'N0_E100_0000000000-0000000000')).first()
-)
-
-tile2 = ee.Image(
-    gfc.filter(ee.Filter.eq('system:index', 'N0_E100_0000000000-0000065536')).first()
-)
-
-intersection = tile1.geometry().intersection(
-    tile2.geometry(),
-    ee.ErrorMargin(1)
-)
-
-print('Overlap area (m²):', intersection.area().getInfo())
-")
-
-
-
-py_run_string("
-import ee
-
-gfc = ee.ImageCollection('JRC/GFC2020/V2').select('Map')
-
-tile1 = ee.Image(
-    gfc.filter(ee.Filter.eq('system:index', 'N50_W80_0000000000-0000000000')).first()
-)
-
-tile2 = ee.Image(
-    gfc.filter(ee.Filter.eq('system:index', 'N50_W90_0000000000-0000065536')).first()
-)
-
-overlap_pixels = (
-    tile1.mask()
-         .And(tile2.mask())
-)
-
-Map = overlap_pixels.reduceRegion(
-    reducer = ee.Reducer.sum(),
-    geometry = tile1.geometry().intersection(
-        tile2.geometry(),
-        ee.ErrorMargin(1)
-    ),
-    scale = 10,
-    maxPixels = 1e13
-)
-
-print(Map.getInfo())
-")
-
-# There's valid pixel overlap between 'N50_W80_0000000000-0000000000' and 'N50_W90_0000000000-0000065536': 
-# {'Map': 46656}
-# Therefore, no subtiles, but tiles overlap.
-
-
-# check:
-py_run_string("
-idx = 'N50_W90_0000065536-0000000000'
-
-# ------------------------------------------------------------------
-# Target image
-# ------------------------------------------------------------------
-img = ee.Image(
-    gfc.filter(ee.Filter.eq('system:index', idx)).first()
-)
-
-# ------------------------------------------------------------------
-# Candidate neighbours (footprints intersect)
-# ------------------------------------------------------------------
-neighbours = gfc.filterBounds(img.geometry())
-
-# ------------------------------------------------------------------
-# Compute overlap of VALID pixels
-# ------------------------------------------------------------------
-def overlap_feature(other):
-
-    other = ee.Image(other)
-
-    overlap = img.geometry().intersection(
-        other.geometry(),
-        ee.ErrorMargin(1)
-    )
-
-    overlap_area = (
-        ee.Image.pixelArea()
-          .divide(10000)
-          .updateMask(img)
-          .updateMask(other)
-          .clip(overlap)
-          .reduceRegion(
-              reducer = ee.Reducer.sum(),
-              geometry = overlap,
-              scale = 10,
-              maxPixels = 1e13
-          )
-          .get('area')
-    )
-
-    return ee.Feature(None, {
-        'image'      : other.get('system:index'),
-        'overlap_ha': ee.Number(
-    ee.Algorithms.If(overlap_area, overlap_area, 0)
-    )
-    })
-
-# Build FeatureCollection
-fc = ee.FeatureCollection(neighbours.map(overlap_feature))
-
-# Keep only non-zero overlaps
-fc = fc.filter(ee.Filter.gt('overlap_ha', 0))
-
-# Sort descending
-fc = fc.sort('overlap_ha', False)
-
-# ------------------------------------------------------------------
-# Download results once
-# ------------------------------------------------------------------
-results = fc.getInfo()['features']
-
-print('')
-print('Image:', idx)
-print('-----------------------------------------------')
-
-for f in results:
-    p = f['properties']
-    print(f\"{p['image']:<45} {p['overlap_ha']:12.2f} ha\")
-
-print('-----------------------------------------------')
-print('Number of overlapping images:', len(results))
-")
-
-# Image: N50_W90_0000065536-0000000000
-# -----------------------------------------------
-#   N50_W90_0000065536-0000000000                   3953121.84 ha
-# N40_W90_0000000000-0000000000                     48013.32 ha
-# N50_W100_0000065536-0000065536                       75.65 ha
-# N40_W100_0000000000-0000065536                        0.18 ha
-# -----------------------------------------------
-#   Number of overlapping images: 4
 
 
 
 
-## Results after running Clement's GEE script
+## Results after running Clement's GEE script (from thiss R session)
 
 drive_ls("EarthEngine")
 file <- drive_find("JRC_GFC_v2_gaul2015_GFC_1deg-final.csv")
@@ -1229,18 +767,18 @@ ft
 
 wb <- createWorkbook()
 
-addWorksheet(wb, "Forest_area")
+addWorksheet(wb, "Forest_area_GFC_v2_Valid_v2")
 
 writeData(wb,
-          sheet = "Forest_area",
-          report_table)
+          sheet = "Forest_area_GFC_v2_Valid_v2",
+          report_table6)
 
 saveWorkbook(wb, file = file.path(dir_2ndAssessment, "Forest_area_report.xlsx"), overwrite = TRUE)
 
 
 # to png
 
-save_as_image(ft, path = file.path(dir_2ndAssessment, "Forest_area_GFC_v2.png"))
+save_as_image(ft, path = file.path(dir_2ndAssessment, "Forest_area_GFC_v2_Valid_v2.png"))
 
 
 

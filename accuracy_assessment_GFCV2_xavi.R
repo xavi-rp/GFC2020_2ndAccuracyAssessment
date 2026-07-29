@@ -899,7 +899,7 @@ gfc_ic$first()$propertyNames()$getInfo()
 #))
 
 
-# Next approach: batch processing, not interactive requests
+# Next approach: batch processing, not interactive requests. Clipping each tile by GAUL
 #The idea is:
 #1)Compute the forest area for each tile.
 #2)Store it as a property of a Feature.
@@ -978,7 +978,7 @@ print('Task submitted.')
 # 5) Check export in the GDrive.
 
 
-install.packages("googledrive")
+#install.packages("googledrive")
 library(googledrive)
 #drive_auth()    # only for the first access, then credentials should be stored
 
@@ -997,10 +997,185 @@ sum(is.na(areas$forest_area_ha))
 
 
 mapped_area <- round(sum(areas$forest_area_ha)/10^6, 0)
-mapped_area
+mapped_area  # this is not exactly the number reported in the first assessment.   4596 (here) vs 4562 (report) --> 
 
 
-# Table 6 reproduction
+## The discrepancies may be due to overlap of the tiles. Let's test that:
+
+py_run_string("
+import ee
+
+gfc = ee.ImageCollection('JRC/GFC2020/V2')
+
+tile1 = ee.Image(
+    gfc.filter(ee.Filter.eq('system:index', 'N0_E100_0000000000-0000000000')).first()
+)
+
+tile2 = ee.Image(
+    gfc.filter(ee.Filter.eq('system:index', 'N0_E100_0000000000-0000065536')).first()
+)
+
+intersection = tile1.geometry().intersection(
+    tile2.geometry(),
+    ee.ErrorMargin(1)
+)
+
+print('Overlap area (m²):', intersection.area().getInfo())
+")
+
+
+
+py_run_string("
+import ee
+
+gfc = ee.ImageCollection('JRC/GFC2020/V2').select('Map')
+
+tile1 = ee.Image(
+    gfc.filter(ee.Filter.eq('system:index', 'N50_W80_0000000000-0000000000')).first()
+)
+
+tile2 = ee.Image(
+    gfc.filter(ee.Filter.eq('system:index', 'N50_W90_0000000000-0000065536')).first()
+)
+
+overlap_pixels = (
+    tile1.mask()
+         .And(tile2.mask())
+)
+
+Map = overlap_pixels.reduceRegion(
+    reducer = ee.Reducer.sum(),
+    geometry = tile1.geometry().intersection(
+        tile2.geometry(),
+        ee.ErrorMargin(1)
+    ),
+    scale = 10,
+    maxPixels = 1e13
+)
+
+print(Map.getInfo())
+")
+
+# There's valid pixel overlap between 'N50_W80_0000000000-0000000000' and 'N50_W90_0000000000-0000065536': 
+# {'Map': 46656}
+# Therefore, no subtiles, but tiles overlap.
+
+
+# check:
+py_run_string("
+idx = 'N50_W90_0000065536-0000000000'
+
+# ------------------------------------------------------------------
+# Target image
+# ------------------------------------------------------------------
+img = ee.Image(
+    gfc.filter(ee.Filter.eq('system:index', idx)).first()
+)
+
+# ------------------------------------------------------------------
+# Candidate neighbours (footprints intersect)
+# ------------------------------------------------------------------
+neighbours = gfc.filterBounds(img.geometry())
+
+# ------------------------------------------------------------------
+# Compute overlap of VALID pixels
+# ------------------------------------------------------------------
+def overlap_feature(other):
+
+    other = ee.Image(other)
+
+    overlap = img.geometry().intersection(
+        other.geometry(),
+        ee.ErrorMargin(1)
+    )
+
+    overlap_area = (
+        ee.Image.pixelArea()
+          .divide(10000)
+          .updateMask(img)
+          .updateMask(other)
+          .clip(overlap)
+          .reduceRegion(
+              reducer = ee.Reducer.sum(),
+              geometry = overlap,
+              scale = 10,
+              maxPixels = 1e13
+          )
+          .get('area')
+    )
+
+    return ee.Feature(None, {
+        'image'      : other.get('system:index'),
+        'overlap_ha': ee.Number(
+    ee.Algorithms.If(overlap_area, overlap_area, 0)
+    )
+    })
+
+# Build FeatureCollection
+fc = ee.FeatureCollection(neighbours.map(overlap_feature))
+
+# Keep only non-zero overlaps
+fc = fc.filter(ee.Filter.gt('overlap_ha', 0))
+
+# Sort descending
+fc = fc.sort('overlap_ha', False)
+
+# ------------------------------------------------------------------
+# Download results once
+# ------------------------------------------------------------------
+results = fc.getInfo()['features']
+
+print('')
+print('Image:', idx)
+print('-----------------------------------------------')
+
+for f in results:
+    p = f['properties']
+    print(f\"{p['image']:<45} {p['overlap_ha']:12.2f} ha\")
+
+print('-----------------------------------------------')
+print('Number of overlapping images:', len(results))
+")
+
+# Image: N50_W90_0000065536-0000000000
+# -----------------------------------------------
+#   N50_W90_0000065536-0000000000                   3953121.84 ha
+# N40_W90_0000000000-0000000000                     48013.32 ha
+# N50_W100_0000065536-0000065536                       75.65 ha
+# N40_W100_0000000000-0000065536                        0.18 ha
+# -----------------------------------------------
+#   Number of overlapping images: 4
+
+
+
+
+## Results after running Clement's GEE script
+
+drive_ls("EarthEngine")
+file <- drive_find("JRC_GFC_v2_gaul2015_GFC_1deg-final.csv")
+drive_download(
+  file,
+  path = paste0(dir_2ndAssessment, "JRC_GFC_v2_gaul2015_GFC_1deg-final.csv"),
+  overwrite = TRUE
+)
+
+areas <- read.csv(paste0(dir_2ndAssessment, "JRC_GFC_v2_gaul2015_GFC_1deg-final.csv"))
+head(areas)
+names(areas)
+unique(areas$Forest_v2)
+
+sum(is.na(areas$Forest_v2)) # 0 NA's
+
+
+mapped_area <- round(sum(areas$Forest_v2)/10^10, 0)    # m2 to Mha
+mapped_area  # this is exactly the number reported in the first assessment. (4562 Mha)
+
+
+
+
+
+
+### Table 6 reproduction ####
 
 fra_area <- 4058
 
@@ -1070,8 +1245,48 @@ save_as_image(ft, path = file.path(dir_2ndAssessment, "Forest_area_GFC_v2.png"))
 
 
 
+## Figure 15  --> a map (to be done!!)  ########
+## Forest area proportion in each 1x1 degree cell for GFC2020 V2. (Figure 15)  --> a map (to be done!!)
+##__________
 
 
+
+
+##  Figure 16  --> a map (to be done!!) ########
+## Net relative difference in forest area estimates between GFC2020 V1 and V2 at 1 degree grid cells  (Figure 16)   --> a map (to be done!!)
+##__________
+
+
+
+
+
+##  Assessment of forest and land use types --> bar charts and maps (to be done!!) ########
+## 
+##__________
+
+
+
+
+
+
+
+## Regional Assessment ####
+dir_assessment2024
+scenario
+
+
+dir_2ndAssessment
+
+list.files(dir_assessment2024)
+list.files("/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_first")
+
+GFC_v2_gaul <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_first/GFC_v2_accuracy-assessment_gaul.xlsx", sheet = "5_combined")
+
+names(GFC_v2_gaul)
+nrow(GFC_v2_gaul)  # 21612, only those for the assessment
+
+sort(unique(GFC_v2_gaul$continent))
+sort(unique(GFC_v2_gaul$continent_gaul))
 
 #
 

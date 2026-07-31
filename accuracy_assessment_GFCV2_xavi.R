@@ -698,7 +698,7 @@ print('Task submitted.')
 
 
 
-## Results after running Clement's GEE script (from thiss R session)
+## Results after running Clement's GEE script (from this R session)
 library(googledrive)
 
 drive_ls("EarthEngine")
@@ -710,6 +710,7 @@ drive_download(
 )
 
 areas <- read.csv(paste0(dir_2ndAssessment, "JRC_GFC_v2_gaul2015_GFC_1deg-final.csv"))
+#areas <- read.csv(paste0(dir_2ndAssessment, "JRC_GFC_v2_gaul2015_GFC_1deg-final_old.csv"))
 head(areas)
 names(areas)
 unique(areas$Forest_v2)
@@ -718,6 +719,10 @@ sum(is.na(areas$Forest_v2)) # 0 NA's
 
 
 mapped_area <- round(sum(areas$Forest_v2)/10^10, 0)    # m2 to Mha
+sum(areas$Forest_v2)/10^10    # m2 to Mha    # 4561.726       ; old: 4561.726
+sum(areas$Forest_v2)          # m2           # 4.561726e+13   ; old: 4.561726e+13
+format(sum(areas$Forest_v2), scientific = FALSE)  # 45617263160131  m2   ;  old: 45617263160131
+
 mapped_area  # this is exactly the number reported in the first assessment. (4562 Mha)
 
 
@@ -828,9 +833,10 @@ head(areas$PageName, 10)
 ## Look at https://code.earthengine.google.com/6b90dc887f94adb09ac4d237a678319a
 ## The geometry follows the coastline, and it is not a full 1° square. It is the land portion of the 1° cell for that country.
 
-## Now, let's compute the the forest area and the land area for each feature, as for Table 6 above
+## Now, let's compute the forest area and the land area for each feature, as for Table 6 above
 
 run_this <- "yes"
+run_this <- "no"
 
 if(run_this == "yes"){
   
@@ -917,7 +923,6 @@ drive_download(
 )
 
 areas <- read.csv(paste0(dir_2ndAssessment, "Figure15_ForestArea_1deg.csv"))
-head(areas)
 
 figure15 <- areas %>%
   group_by(PageNumber, PageName) %>%
@@ -1019,11 +1024,17 @@ drive_download(
 grid <- st_read(paste0(dir_2ndAssessment, "gaul2015_GFC_1deg.geojson"))
 grid
 
+head(grid)
+grid %>% filter(PageName == "BU1")
+grid %>% filter(PageName == "E1")
+grid %>% filter(PageName == "E359")
+
 table(st_geometry_type(grid))
 
 
-## Cleaning 'geometrycollection' andd produce the final grid
+## Cleaning 'geometrycollection' and produce the final grid
 
+do_the_grid <- "yes"
 do_the_grid <- "no"
 
 if(do_the_grid == "yes"){
@@ -1035,7 +1046,8 @@ if(do_the_grid == "yes"){
   # Extract polygon parts from GeometryCollections
   gc_poly <- grid %>%
     filter(st_geometry_type(.) == "GEOMETRYCOLLECTION") %>%
-    st_collection_extract("POLYGON")
+    st_collection_extract("POLYGON") %>% 
+    st_cast("MULTIPOLYGON")
   
   # Merge them
   grid_clean <- bind_rows(poly, gc_poly)
@@ -1070,9 +1082,17 @@ nrow(grid_1deg) # 25668
 names(figure15)
 nrow(figure15) # 25668
 
+kk <- grid_1deg %>% filter(PageName == "BU1")   # stripe
+kk <- grid_1deg %>% filter(PageName == "BU360") 
+kk
+plot(st_geometry(kk), col = "blue", border = NA)
+
+
 figure15_sf <- grid_1deg %>%
   left_join(figure15,
             by = c("PageNumber", "PageName"))
+
+
 
 head(figure15_sf)
 nrow(figure15_sf)
@@ -1100,101 +1120,40 @@ sum(is.na(figure15_sf$ForestClass))
 
 
 #plotting Fig 15
-
-p1 <- ggplot(figure15_sf) +
-  geom_sf(aes(fill = ForestProp),
-          colour = NA) +
-  scale_fill_viridis_c(
-    option = "C",
-    limits = c(0, 1),
-    name = "Forest proportion"
-  ) +
-  coord_sf(expand = FALSE) +
-  theme_void()
-
-
-ggsave(
-  filename = file.path(dir_2ndAssessment,
-                       "Fig15_ForestAreaProportion_GFC2020_v2_Valid_v2.png"),
-  plot = p1,
-  width = 20,
-  height = 12,
-  units = "cm",
-  dpi = 600,
-  bg = "white"
-)
-
-
-## Plot Figure 15
-
-library(rnaturalearth)
 library(viridis)
 
-world <- ne_countries(scale = "medium", returnclass = "sf")
-
-figure_title <- "Forest area proportion in each 1° × 1° cell"
-
-p1 <- ggplot() +
-  
-  # 1° polygons
-  geom_sf(
-    data = grid1deg,
-    aes(fill = ForestProp),
-    colour = NA
+p15 <- ggplot(figure15_sf) +
+  #geom_sf(aes(fill = ForestProp), colour = NA) +  # colour = NA avoids drawing borders around the 1° cells
+  geom_sf(aes(fill = ForestProp), colour = "transparent", linewidth = 0.01) +
+    scale_fill_viridis_c(
+    option = "D",
+    direction = -1,
+    limits = c(0, 1),  # fixes the scale to the theoretical range.
+    oob = scales::squish,   # maps the 2 values slightly above 1 to exactly 1, instead of dropping them
+    name = "Forest\nproportion"
   ) +
-  
-  # country outlines
-  geom_sf(
-    data = world,
-    fill = NA,
-    colour = "black",
-    linewidth = 0.20
-  ) +
-  
-  scale_fill_viridis_c(
-    option = "YlGn",
-    direction = 1,
-    name = "Forest\nproportion",
-    limits = c(0, 1),
-    labels = scales::percent
-  ) +
-  
-  coord_sf(
-    xlim = c(-180, 180),
-    ylim = c(-60, 85),
-    expand = FALSE
-  ) +
-  
-  ggtitle(figure_title) +
-  
+  coord_sf(expand = FALSE) +
   theme_void() +
-  
   theme(
-    plot.title = element_text(
-      hjust = 0.90,
-      face = "bold",
-      size = 12,
-      margin = margin(b = 10)
-    ),
-    plot.title.position = "plot",
-    legend.position = "bottom",
-    legend.title = element_text(size = 11),
-    legend.text = element_text(size = 10)
+    legend.position = "right"
   )
-
-p1
 
 
 ggsave(
   filename = file.path(dir_2ndAssessment,
                        "Fig15_ForestAreaProportion_GFC2020_v2_Valid_v2.png"),
-  plot = p1,
+  plot = p15,
+  device = ragg::agg_png,
   width = 20,
   height = 12,
   units = "cm",
   dpi = 600,
   bg = "white"
 )
+
+
+
+figure_title <- "Forest area proportion in each 1° × 1° cell"
 
 #
 

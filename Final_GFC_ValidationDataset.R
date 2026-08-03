@@ -225,7 +225,7 @@ head(crit3)
 ## Disagreement between the TieCall and all the previous (2024-Final and 2026-1st)      # 577 samples
 ## Some rules (criteria) need to be established
 
-
+#### Case 1 ####
 ## Case 1: 2024-Final and 2026-1st agree on For/Non-For, but TieCall disagrees     # 81 that the Tie Call has changed For/NonFor:    
 #                                                                                    ¡¡¡ check if territorial bias !!!
 ## For     For      Non-For   -->  8  Differences in Natural vs planted            # ¡¡¡ check the images and make a "block" decision if we go for 
@@ -306,7 +306,7 @@ crit41 <- valid_all %>%
 #rbind(crit3, crit41) %>% head()
 
 
-
+#### Case 2 ####
 ## Case 2: 2024-Final and/or 2026-1st and TieCall agree on For/Non-For,              
 ##         but they disagree on Type Class.                             # 493 that the difference is in the Type Class
 ##         The 3 Type Classes are different (no combination of 2 equal)
@@ -856,7 +856,7 @@ comp_groups %>% select(matches("^(X|pct_noc|pct_c)"))
 valid_all_subset %>% 
   select(Region, X2026_TieCall_email) %>% 
   unique()
-table()
+#  table()
  
 # "Northern, Central and Eastern Europe" --> Silvia (using ReneB credentials except for the 3 revised samples)
 
@@ -1483,6 +1483,9 @@ kml_validation_XRP <- bind_rows(kml_list)
 
 nrow(kml_validation_XRP)   # 81
 
+
+## Writing the KML
+
 st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_validation_XRP.kml"), delete_dsn = TRUE, quiet = TRUE)
 #st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_case2_manualRevision.kml"), delete_dsn = TRUE, quiet = TRUE)
 #st_write(kml_validation_XRP, paste0(dir_geowiki, "kml_case34_manualRevision.kml"), delete_dsn = TRUE, quiet = TRUE)
@@ -1610,7 +1613,7 @@ tibble(
 # 2024-Final            20    24.7
 # 2026-1st              12    14.8
 # TieCall               49    60.5
-#   sum                 81     100    # All the cases are equal to one of the 3 pregious assignments
+#   sum                 81     100    # All the cases are equal to one of the 3 previous assignments
 
 
 
@@ -1683,7 +1686,7 @@ TieCall_review %>%
 
 
 
-## McNemar's test for paired data
+##### McNemar's test for paired data ####
 # The binomial test ignores the fact that both methods are evaluated on the same samples.
 # Among the samples where the two methods differ, does one method agree with the reference significantly more often than the other?
 

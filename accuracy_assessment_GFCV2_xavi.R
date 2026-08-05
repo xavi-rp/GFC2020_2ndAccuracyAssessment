@@ -702,6 +702,7 @@ print('Task submitted.')
 library(googledrive)
 
 drive_ls("EarthEngine")
+2
 file <- drive_find("JRC_GFC_v2_gaul2015_GFC_1deg-final.csv")
 drive_download(
   file,
@@ -914,7 +915,7 @@ print('Export started.')
 
 
 
-drive_ls("EarthEngine")
+#drive_ls("EarthEngine")
 file <- drive_find("Figure15_ForestArea_1deg.csv")
 drive_download(
   file,
@@ -1013,12 +1014,22 @@ print('Export started.')
 } # end of do_export
 
 
-file <- drive_find("gaul2015_GFC_1deg.geojson")
+file <- drive_find("gaul2015_GFC_1deg.geojson")  # 'projects/ee-astridverhegghen/assets/EUFO/continents/gaul2015_GFC_1deg-final'
 drive_download(
   file,
   path = paste0(dir_2ndAssessment, "gaul2015_GFC_1deg.geojson"),
   overwrite = TRUE
 )
+
+
+## It looks like 'projects/ee-astridverhegghen/assets/EUFO/continents/gaul2015_GFC_1deg-final'
+## is not the layer used for the report: the stripes shown in the maps produced below (Figure 15)
+## are the cells in the edges of the map --> they go from far E to far W through the entire globe.
+## Therefore, they may wrogly increase total forest area (not the ones crossing where there are no 
+## forests, e.g. Antarctica).
+
+## Note: Total forest area calculated directly with Clement's script in GEE give exactly the same 
+## result than when calculated with this R script through GEE
 
 
 grid <- st_read(paste0(dir_2ndAssessment, "gaul2015_GFC_1deg.geojson"))
@@ -1082,10 +1093,11 @@ nrow(grid_1deg) # 25668
 names(figure15)
 nrow(figure15) # 25668
 
-kk <- grid_1deg %>% filter(PageName == "BU1")   # stripe
-kk <- grid_1deg %>% filter(PageName == "BU360") 
-kk
-plot(st_geometry(kk), col = "blue", border = NA)
+#kk <- grid_1deg %>% filter(PageName == "BU1")   # stripe
+#kk <- grid_1deg %>% filter(PageName == "BU360") 
+#kk
+#plot(st_geometry(kk), col = "blue", border = NA)
+
 
 
 figure15_sf <- grid_1deg %>%
@@ -1162,7 +1174,7 @@ figure_title <- "Forest area proportion in each 1° × 1° cell"
 
 
 
-##  Figure 16  --> a map (to be done!!) ########
+##  Figure 16  --> a map (to be done if needed) ########
 ## Net relative difference in forest area estimates between GFC2020 V1 and V2 at 1 degree grid cells  (Figure 16)   --> a map (to be done!!)
 ##__________
 
@@ -1170,9 +1182,196 @@ figure_title <- "Forest area proportion in each 1° × 1° cell"
 
 
 
-##  Assessment of forest and land use types --> bar charts and maps (to be done!!) ########
-## 
-##__________
+##  Assessment of forest and land use types (Fig 18) --> bar charts and maps (to be done) ########
+
+## Figure 18 shows the number of correctly or incorrectly classified sample units in GFC2020 V2 for each forest or 
+## land use land type (columns “No trees or shrubs present” and “Primary or naturally regenerating forest” are 
+## scaled to the second y-axis).
+
+
+GFC_v2_gaul <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_first/GFC_v2_accuracy-assessment_gaul.xlsx", sheet = "5_combined")
+
+GFC_v2_gaul %>% data.frame() %>% head()
+
+head(GFC_v2_gaul)
+names(GFC_v2_gaul)
+nrow(GFC_v2_gaul)  # 21612, only those for the assessment
+
+sum(is.na(GFC_v2_gaul$forest_class_3))   # 0
+sum(is.na(GFC_v2_gaul$forest_class_num_3))   # 0
+sum(is.na(GFC_v2_gaul$type_class_3))   # 0
+sort(unique(GFC_v2_gaul$type_class_3))
+sort(unique(GFC_v2_gaul$GFC_v2))   # 0, 1
+
+
+
+fig18 <- GFC_v2_gaul %>%
+  mutate(
+    Result = case_when(
+      forest_class_3 == "Forest"     & GFC_v2 == 1 ~ "Forest",
+      forest_class_3 == "Forest"     & GFC_v2 == 0 ~ "Forest mapped non-forest",
+      forest_class_3 == "Non-forest" & GFC_v2 == 0 ~ "Non-forest",
+      forest_class_3 == "Non-forest" & GFC_v2 == 1 ~ "Non-forest mapped forest"
+    ),
+    # Labels exactly as in the report
+    Type = recode(
+      type_class_3,
+      "other wooded land"                  = "Other wooded land",
+      "trees for agricultural use"         = "Trees for agricultural use",
+      "trees in urban areas"               = "Trees in urban areas",
+      "trees inside forest"                = "Trees inside forest",
+      "trees outside forest"               = "Trees outside forest",
+      "no trees or shrubs present"         = "No trees or shrubs present",
+      "Naturally regenerating forest"      = "Primary or naturally regenerating forest",
+      "Planted or plantation forest"       = "Planted or plantation forest"
+    )
+  ) 
+
+
+fig18_sum <- fig18 %>%
+  count(Type, Result)
+
+fig18_sum
+
+
+#defining the order:
+fig18_sum$Type <- factor(
+  fig18_sum$Type,
+  levels = c(
+    "Other wooded land",
+    "Trees for agricultural use",
+    "Trees in urban areas",
+    "Trees inside forest",
+    "Trees outside forest",
+    "No trees or shrubs present",
+    "Primary or naturally regenerating forest",
+    "Planted or plantation forest"
+  )
+)
+
+fig18_sum$Result <- factor(
+  fig18_sum$Result,
+  levels = c(
+    "Non-forest",
+    "Non-forest mapped forest",
+    "Forest",
+    "Forest mapped non-forest"
+  )
+)
+
+fig18_sum
+str(fig18_sum)
+
+scale_factor <- 5
+
+fig18_plot <- fig18_sum %>%
+  mutate(
+    n_plot = if_else(
+      Type %in% c(
+        "No trees or shrubs present",
+        "Primary or naturally regenerating forest"
+      ),
+      n / scale_factor,
+      n
+    )
+  )
+
+
+p18 <- ggplot(fig18_plot, aes(x = Type, y = n_plot, fill = Result)) +
+  geom_col(width = 0.75, position = position_stack(reverse = FALSE))  +
+  scale_fill_manual(
+    values = c(
+      "Non-forest"               = "#F57C00",
+      "Non-forest mapped forest" = "#4F9DD9",
+      "Forest"                   = "#66BB33",
+      "Forest mapped non-forest" = "#F4C20D"
+    ),
+    breaks = c(
+      "Non-forest",
+      "Non-forest mapped forest",
+      "Forest",
+      "Forest mapped non-forest"
+    )
+  ) +
+  scale_y_continuous(name = "Sample units", 
+                     sec.axis = sec_axis(~ . * scale_factor, name = "Sample units")) +
+  labs(x = NULL, y = "Sample units", fill = NULL) +
+  theme_bw() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10),
+    axis.title.y = element_text(size = 12),
+    legend.text = element_text(size = 11),
+    axis.text.y.right = element_text(colour = "red"),
+    axis.title.y.right = element_text(colour = "red"),
+    axis.ticks.y.right = element_line(colour = "red"),
+    #axis.line.y.right = element_line(colour = "red")
+    ) +
+  geom_col(
+    data = subset(
+      fig18_plot,
+      Type %in% c(
+        "No trees or shrubs present",
+        "Primary or naturally regenerating forest"
+      )
+    ),
+    aes(y = n_plot),
+    fill = NA,
+    colour = "red",
+    linewidth = 0.8,
+    width = 0.75,
+    position = position_stack(reverse = FALSE)
+  )
+
+p18
+
+p18_v <- "GFC2020_v2_Valid_v2"
+p18_filename <- paste0("Fig18_TypesBarPlot_", p18_v, ".png")
+  
+ggsave(
+  filename = file.path(dir_2ndAssessment, p18_filename),
+  plot = p18,
+  device = ragg::agg_png,
+  width = 18,
+  height = 15,
+  units = "cm",
+  dpi = 600,
+  bg = "white"
+)
+
+
+## Plotting the results in a table
+
+ft_18 <- fig18_sum %>%
+  arrange(Type) %>%
+  pivot_wider(
+    names_from = Result,
+    values_from = n,
+    values_fill = 0
+  )  %>% 
+  flextable()
+
+ft_18 <- theme_booktabs(ft_18)
+ft_18 <- bold(ft_18, part = "header")
+ft_18 <- bold(ft_18, j = 1)
+ft_18 <- align(ft_18, align = "center", part = "header")
+ft_18 <- align(ft_18, j = 2:5, align = "center", part = "body")
+ft_18 <- border_outer(ft_18, border = fp_border(color = "black", width = 1))
+ft_18 <- border_inner_h(ft_18, border = fp_border(color = "grey70", width = 0.5))
+ft_18 <- border_inner_v(ft_18, border = fp_border(color = "grey70", width = 0.5))
+ft_18 <- bg(ft_18, bg = "white", part = "all")
+ft_18 <- autofit(ft_18)
+
+ft_18
+
+save_as_image(ft_18, path = file.path(paste0(dir_2ndAssessment, "Table_Figure18_", p18_v, ".png")))
+
+#
+
+
+
 
 
 
@@ -1184,19 +1383,16 @@ figure_title <- "Forest area proportion in each 1° × 1° cell"
 dir_assessment2024
 scenario
 
-
-dir_2ndAssessment
-
-list.files(dir_assessment2024)
-list.files("/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_first")
-
-GFC_v2_gaul <- readxl::read_excel("/Users/xavi_rp/Documents/JRC_D1/AccuracyAssessment_first/GFC_v2_accuracy-assessment_gaul.xlsx", sheet = "5_combined")
-
+head(GFC_v2_gaul)
 names(GFC_v2_gaul)
 nrow(GFC_v2_gaul)  # 21612, only those for the assessment
 
 sort(unique(GFC_v2_gaul$continent))
 sort(unique(GFC_v2_gaul$continent_gaul))
+
+
+dir_2ndAssessment
+
 
 #
 

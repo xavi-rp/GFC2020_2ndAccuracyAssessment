@@ -124,6 +124,8 @@ nrow(map_ref_values)  # 21612
 ## Analysis ####
 
 #??stehman2014
+#packageVersion("mapaccuracy")   # ‘0.1.2’
+
 
 
 # s character vector. Strata class labels. The object will be coerced to factor.
@@ -239,6 +241,9 @@ scenario_AA$matrix
 # 1    0.06040711  0.27527363  0.3356807
 # sum  0.70019622  0.29980378  1.0000000
 
+round(scenario_AA$matrix, 3) * 100
+
+
 
 ## Confidence intervals:   CI95 = 1.96 × SE
 z <- 1.96
@@ -289,11 +294,24 @@ report_error_matrix <- function(data,
                        labels = c("Non-forest", "Forest"))
   ))
   
+
   ## Cell proportions (%)
 
-  prop <- round(100 * raw / sum(raw[1:2, 1:2]), 1)
-  
+  #prop <- round(100 * raw / sum(raw[1:2, 1:2]), 1)
+  prop <- raw
+  prop_1 <- round(assessment$matrix, 3) * 100
 
+  prop['Non-forest', 'Non-forest'] <- prop_1["0", "0"]
+  prop['Non-forest', 'Forest'] <- prop_1["0", "1"]
+  prop['Non-forest', 'Sum'] <- prop_1["0", "sum"]
+  prop['Forest', 'Non-forest'] <- prop_1["1", "0"]
+  prop['Forest', 'Forest'] <- prop_1["1", "1"]
+  prop['Forest', 'Sum'] <- prop_1["1", "sum"]
+  prop['Sum', 'Non-forest'] <- prop_1["sum", "0"]
+  prop['Sum', 'Forest'] <- prop_1["sum", "1"]
+  prop['Sum', 'Sum'] <- prop_1["sum", "sum"]
+
+  
   ## Commission errors
 
   commission <- c(
@@ -1368,6 +1386,21 @@ ft_18
 
 save_as_image(ft_18, path = file.path(paste0(dir_2ndAssessment, "Table_Figure18_", p18_v, ".png")))
 
+#
+
+
+fig18_sum_kk <- fig18_sum %>%
+  arrange(Type) %>%
+  pivot_wider(
+    names_from = Result,
+    values_from = n,
+    values_fill = 0
+  ) %>% as.data.frame()
+  
+apply(fig18_sum_kk[, 2:5], 2, sum)
+
+#        Non-forest      Non-forest mapped forest            Forest      Forest mapped non-forest 
+#            13694                     1325                    6016                      577 
 #
 
 

@@ -619,7 +619,7 @@ head(crit_all)
 
 
 ## Add used in 1st assessment, and gaul value (continent)  ####
-## Including a column showing if the sample was finally used in the assessment, or not ####
+## Including a column showing if the sample was finally used in the assessment, or not 
 dir_1stAssessment <- "/Users/xavi_rp/Documents/JRC_D1/copy_SharePoint_kk/validation/Results/final_v2/"
 data_1stAssessment <- readxl::read_excel(paste0(dir_1stAssessment, "GFC_v2_accuracy-assessment_gaul.xlsx"), 
                                          sheet = "5_combined")
@@ -701,13 +701,57 @@ head(crit_all)
 nrow(crit_all)
 
 
+
+
+## Add forest_class numeric (1, 0)  ####
+
+crit_all <- crit_all %>% 
+  mutate(forest_class_num = if_else( forest_class == "Forest", 1, 0)) %>%
+  relocate(forest_class_num, .after = forest_class)
+
+table(crit_all$forest_class_num)
+table(crit_all$forest_class)
+sum(is.na(crit_all$forest_class_num))
+sum(is.na(crit_all$forest_class))
+nrow(crit_all)
+head(crit_all)
+
+
+
+
+## Add centroid XY coordinates ####
+
+valid_all
+nrow(valid_all)
+sum(is.na(valid_all$X2024_1st_pixel_center_x))
+sum(is.na(valid_all$X2024_1st_pixel_center_y))
+
+crit_all <- crit_all %>% 
+  left_join(valid_all %>% select(location_id, X2024_1st_pixel_center_x, X2024_1st_pixel_center_y),
+            by = "location_id") %>% 
+  relocate(c(X2024_1st_pixel_center_x, X2024_1st_pixel_center_y), .after = X2024_1st_sample_id) #%>% 
+
+head(crit_all)
+sum(is.na(crit_all$X2024_1st_pixel_center_x))
+sum(is.na(crit_all$X2024_1st_pixel_center_y))
+
+
+
+
 ## Saving final 2026 validation dataset ####
 
-write.csv(crit_all, 
-          paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"), 
-          row.names = FALSE)
+save_tbl <- "yes"
+save_tbl <- "no"
 
+if(save_tbl == "yes"){
+  write.csv(crit_all, 
+            paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"), 
+            row.names = FALSE)
+}
 
+#crit_all <- read.csv(paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"))
+#names(crit_all)
+#unique(crit_all$type_class)
 
 
 

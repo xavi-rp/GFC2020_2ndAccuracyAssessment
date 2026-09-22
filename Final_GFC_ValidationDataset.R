@@ -14,6 +14,9 @@
 library(tidyverse)
 library(ggplot2)
 library(openxlsx)
+library(ggExtra)
+library(rnaturalearth)
+
 
 
 
@@ -1772,6 +1775,47 @@ mcnemar.test(tab)
 # statistically significant (McNemar's test: χ² = 11.36, df = 1, p < 0.001), indicating that the TieCall was significantly more consistent 
 # with the independent expert assessment than the 2024-Final interpretation. Based on these results, the TieCall interpretation was adopted 
 # for all 81 disputed samples in the final dataset.
+
+
+
+
+## Map with marginal density plots ####
+
+valid_all
+head(valid_all)
+nrow(valid_all)
+
+valid_all %>% 
+  select("location_id", "X2024_1st_pixel_center_x", "X2024_1st_pixel_center_y") %>%  head()
+
+
+world <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
+
+
+p <- ggplot() +
+  geom_sf(data = world, fill = NA, colour = "grey60", linewidth = 0.2) +
+  geom_point(
+    data = valid_all,
+    aes(
+      X2024_1st_pixel_center_x,
+      X2024_1st_pixel_center_y
+    ),
+    size = 0.02
+  )  +
+  labs(x = "X", y = "Y")
+
+p_marginal <- ggMarginal(p, type = "density", margins = "both")
+p_marginal
+
+ggsave(paste0(dir_geowiki, "map_density_allSamples.png"), p_marginal, 
+       width = 12, height = 7, dpi = 300, bg = "white")
+
+
+
+
+
+
+
 
 
 

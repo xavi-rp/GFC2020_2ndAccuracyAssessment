@@ -1784,6 +1784,8 @@ mcnemar.test(tab)
 valid_all
 head(valid_all)
 nrow(valid_all)
+names(valid_all)
+unique(valid_all$Region)
 
 valid_all %>% 
   select("location_id", "X2024_1st_pixel_center_x", "X2024_1st_pixel_center_y") %>%  head()
@@ -1794,15 +1796,15 @@ world <- ne_download(scale = "medium", type = "land", category = "physical", ret
 
 p <- ggplot() +
   geom_sf(data = world, fill = NA, colour = "grey60", linewidth = 0.2) +
-  geom_point(
-    data = valid_all,
-    aes(
-      X2024_1st_pixel_center_x,
-      X2024_1st_pixel_center_y
-    ),
-    size = 0.02
-  )  +
-  labs(x = "X", y = "Y")
+  geom_point(data = valid_all, aes(X2024_1st_pixel_center_x, X2024_1st_pixel_center_y,
+                                   colour = Region), 
+             size = 0.02)  +
+  labs(x = "X", y = "Y") + 
+  scale_colour_viridis_d() +
+  guides(colour = guide_legend(title = NULL, override.aes = list(size = 3))) +
+  theme(legend.position = "none", 
+        #legend.position = "bottom", 
+        legend.key = element_blank())
 
 p_marginal <- ggMarginal(p, type = "density", margins = "both")
 p_marginal

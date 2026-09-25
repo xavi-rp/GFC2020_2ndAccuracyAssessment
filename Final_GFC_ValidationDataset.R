@@ -1815,10 +1815,247 @@ ggsave(paste0(dir_geowiki, "map_density_allSamples.png"), p_marginal,
 
 
 
+## Map C1 - C2 ####
+
+valid_all
+head(valid_all)
+nrow(valid_all)
+names(valid_all)
+unique(valid_all$Region)
+
+valid_all %>% 
+  #select("location_id", "X2024_1st_pixel_center_x", "X2024_1st_pixel_center_y",
+  select("X2024_final_sample_id", "X2026_1st_sample_id", "X2026_TieCall_sample_id")  %>% 
+  summarise(across(everything(), ~ sum(!is.na(.x)))) 
+
+
+world <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
+
+
+p <- ggplot() +
+  geom_sf(data = world, fill = NA, colour = "grey60", linewidth = 0.2) +
+  
+  geom_point(
+    data = valid_all %>% filter(!is.na(X2024_final_sample_id)),
+    aes(
+      X2024_1st_pixel_center_x,
+      X2024_1st_pixel_center_y,
+      colour = "Samples not included in the 2026 reassessment exercise"
+    ),
+    size = 0.02
+  ) +
+  
+  geom_point(
+    data = valid_all %>% filter(!is.na(X2026_1st_sample_id)),
+    aes(
+      X2024_1st_pixel_center_x,
+      X2024_1st_pixel_center_y,
+      colour = "Samples reassessed in 2026, not in the TieCall"
+    ),
+    size = 0.02
+  ) +
+  
+  geom_point(
+    data = valid_all %>% filter(!is.na(X2026_TieCall_sample_id)),
+    aes(
+      X2024_1st_pixel_center_x,
+      X2024_1st_pixel_center_y,
+      colour = "Samples reassessed in 2026, and in the TieCall"
+    ),
+    size = 0.02
+  ) +
+  labs(x = "X", y = "Y") + 
+  scale_colour_manual(
+    breaks = c(
+      "Samples not included in the 2026 reassessment exercise",
+      "Samples reassessed in 2026, not in the TieCall",
+      "Samples reassessed in 2026, and in the TieCall"
+    ),
+    values = c(
+      "Samples not included in the 2026 reassessment exercise" = "blue",
+      "Samples reassessed in 2026, not in the TieCall" = "red",
+      "Samples reassessed in 2026, and in the TieCall" = "green"
+    )
+  ) +
+  guides(colour = guide_legend(title = NULL, override.aes = list(size = 3))) +
+  theme(legend.position = "bottom", 
+        legend.key = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        plot.background = element_rect(fill = "white")
+  )
+
+p
+
+
+ggsave(paste0(dir_geowiki, "map_Samples_C1_C2_TieCall.png"), 
+       p, width = 12, height = 7, dpi = 300, bg = "white")
 
 
 
+## Table: Number of Validation C2 sample units by geographical region ####
+
+valid_all %>% 
+  select("location_id", "Region", "X2024_1st_pixel_center_x", "X2024_1st_pixel_center_y",
+         "X2024_final_sample_id", "X2026_1st_sample_id", "X2026_TieCall_sample_id")  %>% head() 
+  
+table_region <- valid_all %>% 
+  mutate(
+    Assessed_2024 = !is.na(X2024_final_sample_id),
+    Assessed_2026_1st = !is.na(X2026_1st_sample_id),
+    Assessed_TieCall = !is.na(X2026_TieCall_sample_id)
+  ) %>% 
+  group_by(Region) %>% 
+  summarise(
+    `2024-Final` = sum(Assessed_2024),
+    `2026-1st` = sum(Assessed_2026_1st),
+    `TieCall` = sum(Assessed_TieCall),
+    .groups = "drop"
+  ) %>% 
+  arrange(Region)
+
+# Add row and column totals
+table_region <- table_region %>% 
+  bind_rows(
+    summarise(
+      .,
+      Region = "Total",
+      `2024-Final` = sum(`2024-Final`),
+      `2026-1st` = sum(`2026-1st`),
+      `TieCall` = sum(`TieCall`)
+    )
+  )
+
+table_region %>%  as.data.frame()
 
 
 
+## Map Forest to Non-Forest, and a summary table ####
+valid_all <- read.csv(paste0(dir_geowiki, "AllValidations_2024_2026.csv"))
+names(valid_all)
+unique(valid_all$X2024_final_forest_class)
+sum(is.na(valid_all$X2024_final_forest_class))  # 24
+
+
+forest_change <- valid_all %>% 
+  select(location_id, X2024_1st_pixel_center_x, X2024_1st_pixel_center_y, C1_forest_class = X2024_final_forest_class) %>% 
+  left_join(final_C2 %>% select(location_id, C2_forest_class = forest_class), 
+            by = "location_id") %>% 
+  filter(complete.cases(.))
+
+forest_change %>% head()
+forest_change %>% nrow()
+apply(forest_change, 2, function(x) sum(is.na(x)))
+
+
+forest_change <- forest_change %>% 
+  mutate(
+    change = case_when(
+      C1_forest_class == "Forest" & C2_forest_class == "Non-forest" ~
+        "Forest to Non-Forest",
+      C1_forest_class == "Non-forest" & C2_forest_class == "Forest" ~
+        "Non-Forest to Forest",
+      C1_forest_class == C2_forest_class ~
+        "No change"
+    )
+  )
+
+table(forest_change$change)
+
+
+world <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
+
+p <- ggplot() +
+  geom_sf(data = world, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+  geom_point(data = forest_change %>% filter(change != "No change"), aes(x = X2024_1st_pixel_center_x, y = X2024_1st_pixel_center_y, colour = change), size = 0.6) +
+  scale_colour_manual(values = c("Forest to Non-Forest" = "orange", "Non-Forest to Forest" = "green"), guide = guide_legend(override.aes = list(size = 3))) +
+  coord_sf() +
+  labs(x = "X", y = "Y", colour = "Forest/Non-Forest change (C1 to C2)") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+ggsave(paste0(dir_geowiki, "map_For_NonFor_Change.png"), 
+       p, width = 12, height = 7, dpi = 300, bg = "white")
+
+
+
+## And the table
+
+forest_change <- forest_change %>% 
+  left_join(valid_all %>% select(location_id, Region), by = "location_id")
+
+table_forest_NF <- forest_change %>% 
+  group_by(Region) %>% 
+  summarise(
+    N = n(),
+    C1_Forest = sum(C1_forest_class == "Forest"),
+    C1_NonForest = sum(C1_forest_class == "Non-forest"),
+    C2_Forest = sum(C2_forest_class == "Forest"),
+    C2_NonForest = sum(C2_forest_class == "Non-forest"),
+    Forest_to_NonForest = sum(change == "Forest to Non-Forest"),
+    NonForest_to_Forest = sum(change == "Non-Forest to Forest"),
+    .groups = "drop"
+  )%>% 
+  bind_rows(
+    summarise(
+      .,
+      Region = "Total",
+      N = sum(N),
+      C1_Forest = sum(C1_Forest),
+      C1_NonForest = sum(C1_NonForest),
+      C2_Forest = sum(C2_Forest),
+      C2_NonForest = sum(C2_NonForest),
+      Forest_to_NonForest = sum(Forest_to_NonForest),
+      NonForest_to_Forest = sum(NonForest_to_Forest)
+    )
+  )
+
+%>% 
+  bind_rows(
+    summarise(
+      .,
+      Region = "Total",
+      N = sum(N),
+      C1_Forest = sum(C1_Forest),
+      C1_NonForest = sum(C1_NonForest),
+      C2_Forest = sum(C2_Forest),
+      C2_NonForest = sum(C2_NonForest),
+      Forest_to_NonForest = sum(Forest_to_NonForest),
+      NonForest_to_Forest = sum(NonForest_to_Forest)
+    )
+  )
+
+table_forest_NF <- table_forest_NF %>% 
+  mutate(
+    C1_Forest_pct = 100 * C1_Forest / N,
+    C1_NonForest_pct = 100 * C1_NonForest / N,
+    C2_Forest_pct = 100 * C2_Forest / N,
+    C2_NonForest_pct = 100 * C2_NonForest / N,
+    Forest_to_NonForest_pct = 100 * Forest_to_NonForest / N,
+    NonForest_to_Forest_pct = 100 * NonForest_to_Forest / N
+  )
+
+View(table_forest_NF)
+names(table_forest_NF)
+
+table_forest_NF <- table_forest_NF %>% 
+  select("Region", "N", "Forest_to_NonForest", "NonForest_to_Forest", "Forest_to_NonForest_pct", "NonForest_to_Forest_pct") 
+
+table_forest_NF %>% as.data.frame()
+
+
+## Final C2 dataset ####
+
+final_C2 <- read.csv(paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"))
+
+nrow(final_C2)  # 21752
+head(final_C2)
+
+apply(final_C2, 2, function(x) sum(is.na(x)))
+table(final_C2$UsedIn_1stAssessment)
+
+table(final_C2$gaul)
+table(final_C2$continent_gaul)
+
+unique(final_C2$forest_class)
 

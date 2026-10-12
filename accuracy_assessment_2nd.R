@@ -11,7 +11,7 @@
 #______________________________________________________________________________________________________________________#
 
 ## The main objective of this script is to run the 2nd assessment on all versions of the GFC2020 (starting with v2) 
-## using the new version of the validation data set (v3).
+## using the new version of the validation data set (c2).
 
 
 ## Setup ####

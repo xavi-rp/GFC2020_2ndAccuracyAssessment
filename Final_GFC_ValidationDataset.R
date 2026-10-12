@@ -6,19 +6,11 @@
 #-------------------------------------------------------------#
 
 
-
-
-
-
-
 library(tidyverse)
 library(ggplot2)
 library(openxlsx)
 library(ggExtra)
 library(rnaturalearth)
-
-
-
 
 
 
@@ -1779,7 +1771,7 @@ mcnemar.test(tab)
 
 
 
-## Map with marginal density plots ####
+## Map C1/C2 with marginal density plots ####
 
 valid_all
 head(valid_all)
@@ -1792,7 +1784,7 @@ valid_all %>%
 
 
 world <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
-
+region_cols <- c("#66CCEE", "#117733", "#4477AA", "#228833", "#EE6677", "#CCBB44", "#AA3377", "#BBBBBB", "#332288", "#88CCEE","#DDCC77", "#CC6677", "#882255", "#44AA99")
 
 p <- ggplot() +
   geom_sf(data = world, fill = NA, colour = "grey60", linewidth = 0.2) +
@@ -1800,7 +1792,9 @@ p <- ggplot() +
                                    colour = Region), 
              size = 0.02)  +
   labs(x = "X", y = "Y") + 
-  scale_colour_viridis_d() +
+  #scale_colour_viridis_d() +
+  #scale_colour_manual(values = pals::glasbey(14)) +
+  scale_colour_manual(values = region_cols) +
   guides(colour = guide_legend(title = NULL, override.aes = list(size = 3))) +
   theme(legend.position = "none", 
         #legend.position = "bottom", 
@@ -1809,13 +1803,16 @@ p <- ggplot() +
 p_marginal <- ggMarginal(p, type = "density", margins = "both")
 p_marginal
 
-ggsave(paste0(dir_geowiki, "map_density_allSamples.png"), p_marginal, 
-       width = 12, height = 7, dpi = 300, bg = "white")
+plot_it <- "no"
+if(plot_it == "yes"){
+  ggsave(paste0(dir_geowiki, "map_density_allSamples.png"), p_marginal, 
+         width = 12, height = 7, dpi = 300, bg = "white")
+}
 
 
 
 
-## Map C1 - C2 ####
+## Map C1 - C2 samples ####
 
 valid_all
 head(valid_all)
@@ -1887,8 +1884,11 @@ p <- ggplot() +
 p
 
 
-ggsave(paste0(dir_geowiki, "map_Samples_C1_C2_TieCall.png"), 
-       p, width = 12, height = 7, dpi = 300, bg = "white")
+plot_it <- "no"
+if(plot_it == "yes"){
+  ggsave(paste0(dir_geowiki, "map_Samples_C1_C2_TieCall.png"), 
+         p, width = 12, height = 7, dpi = 300, bg = "white")
+}
 
 
 
@@ -1960,6 +1960,7 @@ forest_change <- forest_change %>%
   )
 
 table(forest_change$change)
+head(forest_change)
 
 
 world <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
@@ -1973,16 +1974,21 @@ p <- ggplot() +
   theme_minimal() +
   theme(legend.position = "bottom")
 
+p
 
-ggsave(paste0(dir_geowiki, "map_For_NonFor_Change.png"), 
-       p, width = 12, height = 7, dpi = 300, bg = "white")
-
+plot_it <- "no"
+if(plot_it == "yes"){
+  ggsave(paste0(dir_geowiki, "map_For_NonFor_Change.png"), 
+         p, width = 12, height = 7, dpi = 300, bg = "white")
+}
 
 
 ## And the table
 
 forest_change <- forest_change %>% 
   left_join(valid_all %>% select(location_id, Region), by = "location_id")
+
+head(forest_change)
 
 table_forest_NF <- forest_change %>% 
   group_by(Region) %>% 
@@ -2010,20 +2016,8 @@ table_forest_NF <- forest_change %>%
     )
   )
 
-%>% 
-  bind_rows(
-    summarise(
-      .,
-      Region = "Total",
-      N = sum(N),
-      C1_Forest = sum(C1_Forest),
-      C1_NonForest = sum(C1_NonForest),
-      C2_Forest = sum(C2_Forest),
-      C2_NonForest = sum(C2_NonForest),
-      Forest_to_NonForest = sum(Forest_to_NonForest),
-      NonForest_to_Forest = sum(NonForest_to_Forest)
-    )
-  )
+table_forest_NF
+
 
 table_forest_NF <- table_forest_NF %>% 
   mutate(
@@ -2035,7 +2029,7 @@ table_forest_NF <- table_forest_NF %>%
     NonForest_to_Forest_pct = 100 * NonForest_to_Forest / N
   )
 
-View(table_forest_NF)
+#View(table_forest_NF)
 names(table_forest_NF)
 
 table_forest_NF <- table_forest_NF %>% 
@@ -2044,7 +2038,177 @@ table_forest_NF <- table_forest_NF %>%
 table_forest_NF %>% as.data.frame()
 
 
-## Final C2 dataset ####
+
+
+
+## Changes Forest/OtherLU type C1 - C2 ####
+
+valid_all <- read.csv(paste0(dir_geowiki, "AllValidations_2024_2026.csv"))
+names(valid_all)
+unique(valid_all$X2024_final_forest_class)
+sum(is.na(valid_all$X2024_final_forest_class))  # 24
+unique(valid_all$X2024_final_type_class)
+sum(is.na(valid_all$X2024_final_type_class))  # 24
+
+names(final_C2)
+
+
+type_change <- valid_all %>% 
+  select(location_id, X2024_1st_pixel_center_x, X2024_1st_pixel_center_y, 
+         C1_forest_class = X2024_final_forest_class, 
+         C1_type_class = X2024_final_type_class) %>% 
+  left_join(final_C2 %>% select(location_id, 
+                                C2_forest_class = forest_class, 
+                                C2_type_class = type_class), 
+            by = "location_id") %>% 
+  filter(complete.cases(.))  
+
+type_change <- type_change %>% 
+  mutate(
+    change_forest = case_when(
+      C1_forest_class == "Forest" & C2_forest_class == "Non-forest" ~
+        "Forest to Non-Forest",
+      C1_forest_class == "Non-forest" & C2_forest_class == "Forest" ~
+        "Non-Forest to Forest",
+      C1_forest_class == C2_forest_class ~
+        "No change"
+    )
+  ) 
+
+type_change %>% head()
+type_change %>% nrow() # 21728
+apply(type_change, 2, function(x) sum(is.na(x)))
+
+
+
+# Distribution of Type Classes in C1
+dist_C1 <- type_change %>%
+  filter(!is.na(C1_type_class)) %>%
+  count(Type_Class = C1_type_class, name = "C1_n")
+
+# Distribution of Type Classes in C2
+dist_C2 <- type_change %>%
+  filter(!is.na(C2_type_class)) %>%
+  count(Type_Class = C2_type_class, name = "C2_n")
+
+# Combine distributions and calculate percentages
+table_X <- full_join(dist_C1, dist_C2, by = "Type_Class") %>%
+  mutate(
+    across(c(C1_n, C2_n), ~ replace_na(.x, 0L)),
+    C1_pct = 100 * C1_n / sum(C1_n),
+    C2_pct = 100 * C2_n / sum(C2_n),
+    Difference_pp = C2_pct - C1_pct
+  ) %>%
+  arrange(Type_Class) %>%
+  mutate(
+    `Validation C1` = sprintf("%s (%.2f%%)", C1_n, C1_pct),
+    `Validation C2` = sprintf("%s (%.2f%%)", C2_n, C2_pct),
+    `Difference (percentage points)` = sprintf("%+.2f", Difference_pp)
+  ) %>%
+  select(
+    Type_Class,
+    `Validation C1`,
+    `Validation C2`,
+    `Difference (percentage points)`
+  )
+
+table_X
+write.table(table_X, sep = "\t", row.names = FALSE)
+
+
+
+
+table_Y <- type_change %>%
+  count(C1_type_class, C2_type_class, name = "N") %>%
+  pivot_wider(
+    names_from = C2_type_class,
+    values_from = N,
+    values_fill = 0
+  ) #%>%
+#  arrange(C1_type_class) %>%
+#  mutate(Total = rowSums(across(where(is.numeric)))) %>%
+#  bind_rows(
+#    summarise(
+#      .,
+#      C1_type_class = "Total",
+#      across(where(is.numeric), sum)
+#    )
+#  )
+
+classes <- names(table_Y)[-1]
+
+table_Y$Changes <- rowSums(
+  as.matrix(table_Y[, classes]) *
+    (row(as.matrix(table_Y[, classes])) !=
+       col(as.matrix(table_Y[, classes])))
+)
+
+changes_row <- colSums(
+  as.matrix(table_Y[, classes]) *
+    (row(as.matrix(table_Y[, classes])) !=
+       col(as.matrix(table_Y[, classes])))
+)
+
+table_Y <- bind_rows(table_Y, changes_row)
+
+table_Y[nrow(table_Y), "C1_type_class"] <- "Total Changes"
+
+# Move Changes row above Total
+table_Y <- table_Y %>%
+  slice(match(c(setdiff(C1_type_class, c("Changes", "Total")),
+                "Changes", "Total"), C1_type_class))
+
+# Move Changes column before Total
+table_Y <- table_Y %>%
+  select(C1_type_class, Changes, Total, everything())
+
+View(table_Y)
+write.table(table_Y, sep = "\t", row.names = FALSE)
+
+
+
+## A map
+
+type_change_map <- type_change %>%
+  filter(C1_type_class != C2_type_class) %>%
+  mutate(
+    change_type = if_else(
+      change_forest == "No change",
+      "Type Class change only",
+      "Forest/Non-Forest and Type Class change"
+    )
+  )
+
+ggplot() +
+  geom_point(
+    data = type_change_map,
+    aes(
+      x = X2024_1st_pixel_center_x,
+      y = X2024_1st_pixel_center_y,
+      colour = change_type
+    ),
+    size = 0.8,
+    alpha = 0.8
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Type Class change only" = "#4477AA",
+      "Forest/Non-Forest and Type Class change" = "#EE6677"
+    )
+  ) +
+  coord_equal() +
+  labs(
+    x = "Longitude",
+    y = "Latitude",
+    colour = NULL
+  ) +
+  theme_minimal()
+#
+
+
+
+
+## Read the Final C2 dataset ####
 
 final_C2 <- read.csv(paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"))
 

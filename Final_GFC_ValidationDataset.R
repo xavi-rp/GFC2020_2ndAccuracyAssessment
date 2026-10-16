@@ -2050,6 +2050,8 @@ sum(is.na(valid_all$X2024_final_forest_class))  # 24
 unique(valid_all$X2024_final_type_class)
 sum(is.na(valid_all$X2024_final_type_class))  # 24
 
+
+final_C2 <- read.csv(paste0(dir_geowiki, "Final_2026_GFC_Validation_Dataset.csv"))
 names(final_C2)
 
 
@@ -2124,20 +2126,11 @@ table_Y <- type_change %>%
     names_from = C2_type_class,
     values_from = N,
     values_fill = 0
-  ) #%>%
-#  arrange(C1_type_class) %>%
-#  mutate(Total = rowSums(across(where(is.numeric)))) %>%
-#  bind_rows(
-#    summarise(
-#      .,
-#      C1_type_class = "Total",
-#      across(where(is.numeric), sum)
-#    )
-#  )
+  ) 
 
 classes <- names(table_Y)[-1]
 
-table_Y$Changes <- rowSums(
+table_Y$`Total Changes` <- rowSums(
   as.matrix(table_Y[, classes]) *
     (row(as.matrix(table_Y[, classes])) !=
        col(as.matrix(table_Y[, classes])))
@@ -2153,17 +2146,33 @@ table_Y <- bind_rows(table_Y, changes_row)
 
 table_Y[nrow(table_Y), "C1_type_class"] <- "Total Changes"
 
-# Move Changes row above Total
-table_Y <- table_Y %>%
-  slice(match(c(setdiff(C1_type_class, c("Changes", "Total")),
-                "Changes", "Total"), C1_type_class))
 
-# Move Changes column before Total
-table_Y <- table_Y %>%
-  select(C1_type_class, Changes, Total, everything())
+table_Y$`Total samples` <- rowSums(table_Y[, classes, drop = FALSE])
 
-View(table_Y)
+
+total_row <- colSums(table_Y[seq_len(nrow(table_Y) - 1), c(classes, "Total Changes", "Total samples"), drop = FALSE])
+
+table_Y <- bind_rows(table_Y, total_row)
+
+table_Y[nrow(table_Y), 1] <- "Total samples"
+
+#View(table_Y)
 write.table(table_Y, sep = "\t", row.names = FALSE)
+
+
+
+
+## Move Changes row above Total
+#table_Y <- table_Y %>%
+#  slice(match(c(setdiff(C1_type_class, c("Changes", "Total")),
+#                "Changes", "Total"), C1_type_class))
+#
+## Move Changes column before Total
+#table_Y <- table_Y %>%
+#  select(C1_type_class, Changes, Total, everything())
+#
+#View(table_Y)
+#write.table(table_Y, sep = "\t", row.names = FALSE)
 
 
 

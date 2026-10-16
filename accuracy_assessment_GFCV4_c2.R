@@ -104,7 +104,7 @@ if(dwnld_it == "yes"){
 ## Exploring the dataset
 
 #Valid_c2_GFT2020_V22 <- read.csv(paste0(dir_GFTv2_assessment_c2, "Valid_c2_coords_GFT2020_V22.csv"))
-Valid_c2_GFC2020 <- read.csv(paste0(dir_GFC_assessment_c2, "Valid_c2_coords_GFC2020_V4.csv"))
+Valid_c2_GFC2020 <- read.csv(paste0(dir_GFC_assessment_c2, "/Valid_c2_coords_GFC2020_V4.csv"))
 
 Valid_c2_GFC2020 <- Valid_c2_GFC2020 %>% 
   rename(GFC2020 = Map) #%>% head()
@@ -728,9 +728,10 @@ report_error_matrix <- function(data,
 
 ## Run the function
 #Valid_c2 <- map_ref_values   # change the name to write correct file/tab names
+v4_Valid_c2 <- map_ref_values
 
 res <- report_error_matrix(
-  data       = map_ref_values,             # change the name
+  data       = v4_Valid_c2,             # change the name
   map_col    = "GFC2020",             
   ref_col    = "forest_class_num",
   assessment = scenario_AA,
@@ -812,7 +813,7 @@ p
 Fig13_Filename <- "Fig_ErrorDistribution_GFC2020_v2_Valid_c2.png"
 Fig13_Filename <- "Fig_ErrorDistribution_GFC2020_v4_Valid_c2.png"
 
-Fig13_dir <- dir_2ndAssessment
+#Fig13_dir <- dir_2ndAssessment
 Fig13_dir <- dir_GFC_assessment_c2
 
 save_it <- "yes"
@@ -853,7 +854,7 @@ forest_area <- scenario_AA$area["1"] * total_area
 forest_area <- forest_area / 10^6    # Mha
 forest_area   # 4021.075 Mha
 # 4021.908 Mha   (v2_Valid_c2)
-# 4021.908 Mha   (v4_Valid_c2)
+# 4021.908 Mha   (v4_Valid_c2)    # 4021908385
 
 scenario_AA$SEa
 forest_se   <- scenario_AA$SEa["1"] * total_area
@@ -865,6 +866,188 @@ forest_ci95  # 83
 
 
 ## In the repor
+
+
+
+
+### Calculate total forest area (not adjusted) ####
+#library(rgee)
+#ee_install_upgrade()
+#ee_Initialize()
+
+## rgee doesn't work. We'll use 'reticulate'
+library(reticulate)
+
+# Use the dedicated Python environment
+use_condaenv("rgee311", required = TRUE)
+
+# Import the Earth Engine Python package
+ee <- import("ee")
+
+# Authenticate
+ee$Authenticate()
+
+# Initialize Earth Engine
+ee$Initialize(project = "gfc2020-503311")
+
+
+## GEE is initialised, now we can run the calculations
+
+
+## Forest area
+## Clement's GEE script: https://code.earthengine.google.com/7cfb76f43e06c22856311f81662552da
+
+run_this <- "yes"
+run_this <- "no"
+
+if(run_this == "yes"){
+  
+  py_run_string("
+import ee
+
+# ---------------------------------------------------------------------
+# GFC v4
+# ---------------------------------------------------------------------
+
+# Mosaic the collection into a single image (remove overlapping)
+#GFCv3 = ee.ImageCollection('JRC/GFC2020/V3').mosaic()
+#GFCv3 = ee.Image('JRC/GFC2020/V3')
+GFCv4 = ee.Image('JRC/GFC2020/V4')
+
+# Spatial zones to iterate over
+Zones = ee.FeatureCollection(
+    'projects/ee-astridverhegghen/assets/EUFO/continents/gaul2015_GFC_1deg-final'
+)
+
+# ---------------------------------------------------------------------
+# Forest layer
+# ---------------------------------------------------------------------
+
+# Keep only value 1 (forest), rename the band.
+# ee.Image.cat() is kept for fidelity with the original script.
+AllClasses = ee.Image.cat(
+    GFCv4.eq(1).rename('Forest_v4')
+)
+
+# ---------------------------------------------------------------------
+# Function applied to every feature
+# ---------------------------------------------------------------------
+
+def LOOPsamples(feature):
+
+    vals = (
+        AllClasses
+        .multiply(ee.Image.pixelArea())
+        .reduceRegion(
+            reducer = ee.Reducer.sum(),
+            geometry = feature.geometry(),
+            scale = 10,
+            maxPixels = 1e13
+        )
+    )
+
+    return (
+        ee.Feature(None, vals)
+        .copyProperties(feature, feature.propertyNames())
+    )
+
+# Apply the function to every feature
+LOOPresult2 = Zones.map(LOOPsamples)
+
+# ---------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------
+
+task = ee.batch.Export.table.toDrive(
+    collection = LOOPresult2,
+    description = 'JRC_GFC_v4_gaul2015_GFC_1deg-final',
+    folder = 'EarthEngine',
+    fileNamePrefix = 'JRC_GFC_v4_gaul2015_GFC_1deg-final',
+    fileFormat = 'CSV'
+)
+
+task.start()
+
+print('Task submitted. Check your submitted tasks in https://code.earthengine.google.com/')
+")
+
+
+}
+
+
+## Results after running GEE script (from this R session)
+library(googledrive)
+
+drive_ls("EarthEngine")
+2
+file <- drive_find("JRC_GFC_v4_gaul2015_GFC_1deg-final.csv")
+drive_download(
+  file,
+  path = paste0(dir_GFC_assessment_c2, "/JRC_GFC_v4_gaul2015_GFC_1deg-final.csv"),
+  overwrite = TRUE
+)
+
+areas <- read.csv(paste0(dir_GFC_assessment_c2, "/JRC_GFC_v4_gaul2015_GFC_1deg-final.csv"))
+head(areas)
+names(areas)
+nrow(areas)  # 28452
+unique(areas$FID_gaul20) %>% length  # 25668
+
+
+unique(areas$Forest_v4)
+sum(is.na(areas$Forest_v4)) # 0 NA's
+
+
+
+
+mapped_area <- round(sum(areas$Forest_v4)/10^10, 0)    # m2 to Mha    # v4_c2: 4161 Mha
+sum(areas$Forest_v4)/10^10    # m2 to Mha    # 4561.726       ; old: 4561.726      # v4_c2: 4161.457 Mha
+sum(areas$Forest_v4)          # m2           # 4.561726e+13   ; old: 4.561726e+13   # v4_c2:
+format(sum(areas$Forest_v4), scientific = FALSE)  # 45617263160131  m2   ;  old: 45617263160131   # v4_c2: 41614568537094 ha
+
+mapped_area  # this is exactly the number reported in the first assessment. (4562 Mha)   # v4_c2: 4161 Mha
+
+
+
+## Check Vietnam
+head(areas)
+sort(unique(areas$ADM0_NAME))
+
+length(unique(areas$ADM0_NAME))
+length(unique(areas$FAO_CODE))
+
+
+
+ areas %>% 
+  filter(ADM0_NAME == "Viet Nam") %>% #head
+  #nrow()  # 64
+  #pull(FID_gaul20) %>% unique %>% length  # 64
+  pull(FAO_CODE) %>% unique  # 237
+
+ areas %>% 
+   filter(FAO_CODE == 237) %>% 
+   nrow  # 64
+
+
+forest_area_VietNam <- areas %>% 
+  filter(ADM0_NAME == "Viet Nam") %>%
+  pull(Forest_v4) %>% sum/10^7    # m2 to 1000ha  
+
+forest_area_VietNam   # (v4_c2): 15280.58
+
+# should do the same for GFT to get Primary / Planted areas
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
